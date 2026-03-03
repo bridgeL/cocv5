@@ -1,0 +1,518 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>WebSocket Demo</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+        }
+
+        .container {
+            max-width: 800px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 16px;
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+            overflow: hidden;
+        }
+
+        .header {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 30px;
+            text-align: center;
+        }
+
+        .header h1 {
+            font-size: 28px;
+            margin-bottom: 10px;
+        }
+
+        .status {
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            padding: 8px 16px;
+            background: rgba(255, 255, 255, 0.2);
+            border-radius: 20px;
+            font-size: 14px;
+        }
+
+        .status-dot {
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            background: #ff4444;
+            transition: background 0.3s;
+        }
+
+        .status-dot.connected {
+            background: #44ff44;
+            box-shadow: 0 0 10px #44ff44;
+        }
+
+        .content {
+            padding: 30px;
+        }
+
+        .section {
+            margin-bottom: 30px;
+        }
+
+        .section-title {
+            font-size: 18px;
+            color: #333;
+            margin-bottom: 15px;
+            padding-bottom: 10px;
+            border-bottom: 2px solid #eee;
+        }
+
+        .input-group {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 15px;
+        }
+
+        input[type="text"] {
+            flex: 1;
+            padding: 12px 16px;
+            border: 2px solid #e0e0e0;
+            border-radius: 8px;
+            font-size: 14px;
+            transition: border-color 0.3s;
+        }
+
+        input[type="text"]:focus {
+            outline: none;
+            border-color: #667eea;
+        }
+
+        button {
+            padding: 12px 24px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border: none;
+            border-radius: 8px;
+            font-size: 14px;
+            cursor: pointer;
+            transition: transform 0.2s, box-shadow 0.2s;
+        }
+
+        button:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 5px 20px rgba(102, 126, 234, 0.4);
+        }
+
+        button:active {
+            transform: translateY(0);
+        }
+
+        button:disabled {
+            background: #ccc;
+            cursor: not-allowed;
+            transform: none;
+        }
+
+        .messages {
+            background: #f8f9fa;
+            border-radius: 8px;
+            padding: 15px;
+            max-height: 300px;
+            overflow-y: auto;
+        }
+
+        .message {
+            padding: 10px 15px;
+            margin-bottom: 10px;
+            border-radius: 8px;
+            font-size: 14px;
+            line-height: 1.5;
+        }
+
+        .message:last-child {
+            margin-bottom: 0;
+        }
+
+        .message.sent {
+            background: #667eea;
+            color: white;
+            margin-left: 20%;
+        }
+
+        .message.received {
+            background: white;
+            border: 1px solid #e0e0e0;
+            margin-right: 20%;
+        }
+
+        .message.system {
+            background: #fff3cd;
+            border: 1px solid #ffc107;
+            text-align: center;
+        }
+
+        .message.error {
+            background: #f8d7da;
+            border: 1px solid #dc3545;
+            color: #721c24;
+        }
+
+        .message .type {
+            font-size: 12px;
+            opacity: 0.7;
+            margin-bottom: 4px;
+        }
+
+        .stats {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+            gap: 15px;
+            margin-top: 20px;
+        }
+
+        .stat-card {
+            background: #f8f9fa;
+            padding: 15px;
+            border-radius: 8px;
+            text-align: center;
+        }
+
+        .stat-value {
+            font-size: 24px;
+            font-weight: bold;
+            color: #667eea;
+        }
+
+        .stat-label {
+            font-size: 12px;
+            color: #666;
+            margin-top: 5px;
+        }
+
+        .typing-indicator {
+            display: none;
+            padding: 10px 15px;
+            color: #666;
+            font-style: italic;
+        }
+
+        .typing-indicator.active {
+            display: block;
+        }
+
+        .clear-btn {
+            background: #6c757d;
+            margin-left: 10px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>🚀 WebSocket Demo</h1>
+            <div class="status">
+                <span class="status-dot" id="statusDot"></span>
+                <span id="statusText">Disconnected</span>
+            </div>
+        </div>
+
+        <div class="content">
+            <!-- Connection Section -->
+            <div class="section">
+                <h2 class="section-title">连接控制</h2>
+                <div class="input-group">
+                    <button id="connectBtn" onclick="connect()">连接</button>
+                    <button id="disconnectBtn" onclick="disconnect()" disabled>断开</button>
+                    <button class="clear-btn" onclick="clearMessages()">清空消息</button>
+                </div>
+            </div>
+
+            <!-- Ping/Pong Section -->
+            <div class="section">
+                <h2 class="section-title">心跳测试 (Ping/Pong)</h2>
+                <div class="input-group">
+                    <button onclick="sendPing()" id="pingBtn" disabled>发送 Ping</button>
+                </div>
+            </div>
+
+            <!-- Echo Section -->
+            <div class="section">
+                <h2 class="section-title">消息回显 (Echo)</h2>
+                <div class="input-group">
+                    <input type="text" id="echoInput" placeholder="输入消息..." onkeypress="handleEnter(event, 'echo')">
+                    <button onclick="sendEcho()" id="echoBtn" disabled>发送</button>
+                </div>
+            </div>
+
+            <!-- Agent Chat Section -->
+            <div class="section">
+                <h2 class="section-title">AI 对话 (Agent Chat)</h2>
+                <div class="input-group">
+                    <input type="text" id="chatInput" placeholder="输入你的问题..." onkeypress="handleEnter(event, 'chat')">
+                    <button onclick="sendChat()" id="chatBtn" disabled>发送</button>
+                </div>
+                <div class="typing-indicator" id="typingIndicator">
+                    AI 正在思考...
+                </div>
+            </div>
+
+            <!-- Messages Section -->
+            <div class="section">
+                <h2 class="section-title">消息记录</h2>
+                <div class="messages" id="messages"></div>
+            </div>
+
+            <!-- Stats Section -->
+            <div class="stats">
+                <div class="stat-card">
+                    <div class="stat-value" id="pingCount">0</div>
+                    <div class="stat-label">Ping 次数</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-value" id="msgCount">0</div>
+                    <div class="stat-label">消息总数</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-value" id="latency">-</div>
+                    <div class="stat-label">延迟 (ms)</div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let ws = null;
+        let pingCount = 0;
+        let msgCount = 0;
+        let pingStartTime = 0;
+        let sessionId = 'session_' + Math.random().toString(36).substr(2, 9);
+
+        function updateStatus(connected) {
+            const dot = document.getElementById('statusDot');
+            const text = document.getElementById('statusText');
+            const connectBtn = document.getElementById('connectBtn');
+            const disconnectBtn = document.getElementById('disconnectBtn');
+            const pingBtn = document.getElementById('pingBtn');
+            const echoBtn = document.getElementById('echoBtn');
+            const chatBtn = document.getElementById('chatBtn');
+
+            if (connected) {
+                dot.classList.add('connected');
+                text.textContent = 'Connected';
+                connectBtn.disabled = true;
+                disconnectBtn.disabled = false;
+                pingBtn.disabled = false;
+                echoBtn.disabled = false;
+                chatBtn.disabled = false;
+            } else {
+                dot.classList.remove('connected');
+                text.textContent = 'Disconnected';
+                connectBtn.disabled = false;
+                disconnectBtn.disabled = true;
+                pingBtn.disabled = true;
+                echoBtn.disabled = true;
+                chatBtn.disabled = true;
+            }
+        }
+
+        function addMessage(type, content, isSent = false) {
+            const messagesDiv = document.getElementById('messages');
+            const messageDiv = document.createElement('div');
+            messageDiv.className = `message ${isSent ? 'sent' : 'received'}`;
+
+            if (type === 'system') {
+                messageDiv.className = 'message system';
+            } else if (type === 'error') {
+                messageDiv.className = 'message error';
+            }
+
+            const typeDiv = document.createElement('div');
+            typeDiv.className = 'type';
+            typeDiv.textContent = type;
+
+            const contentDiv = document.createElement('div');
+            contentDiv.textContent = typeof content === 'object' ? JSON.stringify(content, null, 2) : content;
+
+            messageDiv.appendChild(typeDiv);
+            messageDiv.appendChild(contentDiv);
+            messagesDiv.appendChild(messageDiv);
+            messagesDiv.scrollTop = messagesDiv.scrollHeight;
+
+            msgCount++;
+            document.getElementById('msgCount').textContent = msgCount;
+        }
+
+        function connect() {
+            if (ws && ws.readyState === WebSocket.OPEN) {
+                return;
+            }
+
+            // 使用新的 WebSocket 端点地址
+            ws = new WebSocket('ws://localhost:8080/ws');
+
+            ws.onopen = function() {
+                updateStatus(true);
+                addMessage('system', 'WebSocket 连接已建立');
+            };
+
+            ws.onmessage = function(event) {
+                try {
+                    const data = JSON.parse(event.data);
+                    handleMessage(data);
+                } catch (e) {
+                    addMessage('raw', event.data);
+                }
+            };
+
+            ws.onclose = function() {
+                updateStatus(false);
+                addMessage('system', 'WebSocket 连接已关闭');
+            };
+
+            ws.onerror = function(error) {
+                addMessage('error', 'WebSocket 错误: ' + error);
+            };
+        }
+
+        function disconnect() {
+            if (ws) {
+                ws.close();
+                ws = null;
+            }
+        }
+
+        function handleMessage(data) {
+            if (data.type === 'pong') {
+                const latency = Date.now() - pingStartTime;
+                document.getElementById('latency').textContent = latency;
+                addMessage('pong', `服务器时间: ${data.server_time}, 延迟: ${latency}ms`);
+            } else if (data.type === 'echo') {
+                addMessage('echo', data);
+            } else if (data.type === 'received') {
+                // 消息已接收确认
+            } else if (data.type === 'msg_start') {
+                document.getElementById('typingIndicator').classList.add('active');
+            } else if (data.type === 'msg_chunk') {
+                // 流式消息块，追加到最后一条消息
+                const messagesDiv = document.getElementById('messages');
+                let lastMessage = messagesDiv.lastElementChild;
+                if (!lastMessage || !lastMessage.classList.contains('streaming')) {
+                    lastMessage = document.createElement('div');
+                    lastMessage.className = 'message received streaming';
+                    const typeDiv = document.createElement('div');
+                    typeDiv.className = 'type';
+                    typeDiv.textContent = 'agent_response';
+                    lastMessage.appendChild(typeDiv);
+                    const contentDiv = document.createElement('div');
+                    contentDiv.className = 'content';
+                    lastMessage.appendChild(contentDiv);
+                    messagesDiv.appendChild(lastMessage);
+                }
+                lastMessage.querySelector('.content').textContent += data.content;
+                messagesDiv.scrollTop = messagesDiv.scrollHeight;
+            } else if (data.type === 'msg_end') {
+                const messagesDiv = document.getElementById('messages');
+                const lastMessage = messagesDiv.lastElementChild;
+                if (lastMessage) {
+                    lastMessage.classList.remove('streaming');
+                }
+            } else if (data.type === 'complete') {
+                document.getElementById('typingIndicator').classList.remove('active');
+            } else if (data.type === 'tool_start') {
+                addMessage('tool', `正在调用工具: ${data.tool_calls.map(t => t.function.name).join(', ')}`);
+            } else if (data.type === 'tool_end') {
+                addMessage('tool', '工具调用完成');
+            } else if (data.type === 'error') {
+                addMessage('error', data.error);
+                document.getElementById('typingIndicator').classList.remove('active');
+            } else {
+                addMessage(data.type || 'unknown', data);
+            }
+        }
+
+        function sendPing() {
+            if (!ws || ws.readyState !== WebSocket.OPEN) return;
+
+            pingStartTime = Date.now();
+            ws.send(JSON.stringify({
+                type: 'ping',
+                time: Date.now()
+            }));
+
+            pingCount++;
+            document.getElementById('pingCount').textContent = pingCount;
+            addMessage('ping', '发送 ping...', true);
+        }
+
+        function sendEcho() {
+            if (!ws || ws.readyState !== WebSocket.OPEN) return;
+
+            const input = document.getElementById('echoInput');
+            const message = input.value.trim();
+            if (!message) return;
+
+            ws.send(JSON.stringify({
+                type: 'echo',
+                message: message
+            }));
+
+            addMessage('echo', message, true);
+            input.value = '';
+        }
+
+        function sendChat() {
+            if (!ws || ws.readyState !== WebSocket.OPEN) return;
+
+            const input = document.getElementById('chatInput');
+            const message = input.value.trim();
+            if (!message) return;
+
+            ws.send(JSON.stringify({
+                type: 'agent_chat',
+                message: message,
+                session_id: sessionId
+            }));
+
+            addMessage('agent_chat', message, true);
+            input.value = '';
+        }
+
+        function handleEnter(event, type) {
+            if (event.key === 'Enter') {
+                if (type === 'echo') {
+                    sendEcho();
+                } else if (type === 'chat') {
+                    sendChat();
+                }
+            }
+        }
+
+        function clearMessages() {
+            document.getElementById('messages').innerHTML = '';
+            msgCount = 0;
+            document.getElementById('msgCount').textContent = 0;
+        }
+
+        // 页面加载时自动连接
+        window.onload = function() {
+            connect();
+        };
+
+        // 页面关闭时断开连接
+        window.onbeforeunload = function() {
+            disconnect();
+        };
+    </script>
+</body>
+</html>
