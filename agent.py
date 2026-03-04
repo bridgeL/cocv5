@@ -9,7 +9,7 @@ import os
 from typing import Any
 from openai import AsyncOpenAI
 from memory import get_memory
-from config import OPENAI_API_KEY, OPENAI_BASE_URL, MODEL_NAME
+from config import MODEL_API_KEY, MODEL_URL, MODEL_NAME
 from fastapi import FastAPI, WebSocket, WebSocketDisconnect
 
 
