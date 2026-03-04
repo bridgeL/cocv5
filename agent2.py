@@ -1,5 +1,7 @@
 import asyncio
 import json
+import sqlite3
+from datetime import datetime
 from pydantic import BaseModel
 from openai import AsyncOpenAI
 from typing import AsyncGenerator, Dict, List, Any, Optional
@@ -50,97 +52,95 @@ class Tool:
 
 
 class Memory:
-    """内存类，存储对话历史"""
+    """内存类，存储对话历史到SQLite数据库"""
 
-    def __init__(self, max_history: int = 10):
-        self.messages: List[Dict[str, Any]] = []
-        self.max_history = max_history
+    def __init__(self, session_id: str, db_path: str = "memory.db"):
+        self.session_id = session_id
+        self.db_path = db_path
+        self._init_db()
+
+    def _init_db(self):
+        """初始化数据库表"""
+        with sqlite3.connect(self.db_path) as conn:
+            conn.execute("""
+                CREATE TABLE IF NOT EXISTS memory (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    session_id TEXT NOT NULL,
+                    role TEXT NOT NULL,
+                    content TEXT NOT NULL,
+                    tool_calls TEXT,
+                    tool_call_id TEXT,
+                    create_time TEXT NOT NULL
+                )
+            """)
+            conn.commit()
+
+    def _insert_message(
+        self,
+        role: str,
+        content: str,
+        tool_calls: Optional[List[Dict]] = None,
+        tool_call_id: Optional[str] = None,
+    ):
+        """插入消息到数据库，实时保存"""
+        create_time = int(datetime.now().timestamp() * 1000)
+        tool_calls_json = json.dumps(tool_calls, ensure_ascii=False) if tool_calls else None
+
+        with sqlite3.connect(self.db_path) as conn:
+            conn.execute(
+                """
+                INSERT INTO memory (session_id, role, content, tool_calls, tool_call_id, create_time)
+                VALUES (?, ?, ?, ?, ?, ?)
+                """,
+                (self.session_id, role, content, tool_calls_json, tool_call_id, create_time),
+            )
+            conn.commit()
 
     def add_user_message(self, content: str):
         """添加用户消息"""
-        self.messages.append({"role": "user", "content": content})
-        self._trim_history()
+        self._insert_message(role="user", content=content)
 
     def add_assistant_message(
         self, content: str, tool_calls: Optional[List[Dict]] = None
     ):
         """添加助手消息"""
-        msg: Dict[str, Any] = {"role": "assistant", "content": content}
-        if tool_calls:
-            msg["tool_calls"] = tool_calls
-        self.messages.append(msg)
-        self._trim_history()
+        self._insert_message(role="assistant", content=content, tool_calls=tool_calls)
 
     def add_tool_result(self, tool_call_id: str, content: str):
         """添加工具执行结果"""
-        self.messages.append(
-            {
-                "role": "tool",
-                "tool_call_id": tool_call_id,
-                "content": content,
-            }
-        )
-        self._trim_history()
+        self._insert_message(role="tool", content=content, tool_call_id=tool_call_id)
 
     def get_messages(self) -> List[Dict[str, Any]]:
         """获取所有历史消息"""
-        return self.messages.copy()
+        with sqlite3.connect(self.db_path) as conn:
+            cursor = conn.execute(
+                """
+                SELECT role, content, tool_calls, tool_call_id FROM memory
+                WHERE session_id = ?
+                ORDER BY id ASC
+                """,
+                (self.session_id,),
+            )
+            rows = cursor.fetchall()
+
+        messages = []
+        for role, content, tool_calls_json, tool_call_id in rows:
+            msg: Dict[str, Any] = {"role": role, "content": content}
+            if tool_calls_json:
+                msg["tool_calls"] = json.loads(tool_calls_json)
+            if tool_call_id:
+                msg["tool_call_id"] = tool_call_id
+            messages.append(msg)
+        return messages
 
     def clear(self):
-        """清空历史"""
-        self.messages = []
-
-    def _trim_history(self):
-        """修剪历史，保持不超过最大长度"""
-        if len(self.messages) <= self.max_history:
-            return
-
-        # 从开头移除消息，但要保持 tool_calls 和 tool 消息的配对
-        while len(self.messages) > self.max_history:
-            # 找到第一个非系统消息（通常是 user 或 assistant）
-            first_msg = self.messages[0]
-
-            # 如果要移除的消息包含 tool_calls，需要同时移除对应的 tool 消息
-            if first_msg.get("role") == "assistant" and first_msg.get("tool_calls"):
-                # 收集所有 tool_call_id
-                tool_call_ids = {
-                    tc["id"] for tc in first_msg.get("tool_calls", [])
-                }
-                # 移除 assistant 消息
-                self.messages.pop(0)
-                # 移除对应的 tool 消息
-                self.messages = [
-                    m for m in self.messages
-                    if not (m.get("role") == "tool" and m.get("tool_call_id") in tool_call_ids)
-                ]
-            # 如果要移除的是 tool 消息，检查其对应的 assistant 消息是否还在
-            elif first_msg.get("role") == "tool":
-                tool_call_id = first_msg.get("tool_call_id")
-                # 检查是否有 assistant 消息引用这个 tool_call
-                has_assistant = any(
-                    m.get("role") == "assistant"
-                    and any(tc["id"] == tool_call_id for tc in m.get("tool_calls", []))
-                    for m in self.messages
-                )
-                if not has_assistant:
-                    # 如果没有对应的 assistant，直接移除
-                    self.messages.pop(0)
-                else:
-                    # 有对应的 assistant，先移除那个 assistant
-                    for i, m in enumerate(self.messages):
-                        if m.get("role") == "assistant" and m.get("tool_calls"):
-                            if any(tc["id"] == tool_call_id for tc in m.get("tool_calls", [])):
-                                # 移除这个 assistant 及其所有 tool 消息
-                                tool_call_ids = {tc["id"] for tc in m.get("tool_calls", [])}
-                                self.messages.pop(i)
-                                self.messages = [
-                                    m for m in self.messages
-                                    if not (m.get("role") == "tool" and m.get("tool_call_id") in tool_call_ids)
-                                ]
-                                break
-            else:
-                # 普通消息直接移除
-                self.messages.pop(0)
+        """清空当前session的历史"""
+        with sqlite3.connect(self.db_path) as conn:
+            conn.execute(
+                "DELETE FROM memory WHERE session_id = ?",
+                (self.session_id,),
+            )
+            conn.commit()
 
 
 class Skill:
@@ -461,7 +461,7 @@ skills = [
 
 # 初始化组件
 llm = LLM(MODEL_URL, MODEL_API_KEY, MODEL_NAME)
-memory = Memory(max_history=10)
+memory = Memory(session_id="demo_session", db_path="memory.db")
 agent = Agent(
     tools=tools,
     skills=skills,
