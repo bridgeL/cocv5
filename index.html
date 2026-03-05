@@ -494,6 +494,8 @@
                 case 'tool_before':
                     // 工具调用前
                     hideThinking();
+                    // 重置当前消息，工具调用后需要新开一个气泡
+                    currentAssistantMessage = null;
                     if (data.tool_calls) {
                         data.tool_calls.forEach(tc => {
                             addToolCall(tc.name, tc.arguments);
