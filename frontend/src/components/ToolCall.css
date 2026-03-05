@@ -1,0 +1,82 @@
+/* 工具调用显示 */
+.tool-call {
+  background: linear-gradient(135deg, #f5f7fa 0%, #e4e8ec 100%);
+  border: 1px solid #d0d5dd;
+  border-radius: 12px;
+  padding: 14px 16px;
+  margin: 10px 0;
+  font-size: 13px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
+  transition: all 0.3s ease;
+}
+
+.tool-call:hover {
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+  transform: translateY(-1px);
+}
+
+.tool-call.executing {
+  background: linear-gradient(135deg, #e8f4fd 0%, #d6e9f8 100%);
+  border-color: #4aa8ff;
+  animation: pulse-border 2s infinite;
+}
+
+.tool-call.success {
+  background: linear-gradient(135deg, #f0f9f0 0%, #e0f2e0 100%);
+  border-color: #5cb85c;
+}
+
+.tool-call.error {
+  background: linear-gradient(135deg, #fff5f5 0%, #ffe0e0 100%);
+  border-color: #ff6b6b;
+}
+
+@keyframes pulse-border {
+  0%, 100% { border-color: #4aa8ff; }
+  50% { border-color: #80c5ff; }
+}
+
+.tool-call-header {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-weight: 600;
+  margin-bottom: 10px;
+  font-size: 13px;
+}
+
+.tool-call.executing .tool-call-header {
+  color: #1a73e8;
+}
+
+.tool-call.success .tool-call-header {
+  color: #2e7d32;
+}
+
+.tool-call.error .tool-call-header {
+  color: #d32f2f;
+}
+
+.tool-call-icon {
+  font-size: 16px;
+  width: 24px;
+  height: 24px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.8);
+}
+
+.tool-call-section {
+  margin-top: 10px;
+}
+
+.tool-call-section-title {
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  color: #888;
+  margin-bottom: 6px;
+  font-weight: 600;
+}

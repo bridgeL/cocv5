@@ -1,0 +1,100 @@
+/* 字典/JSON 展示样式 */
+.dict-container {
+  background: rgba(255, 255, 255, 0.7);
+  border-radius: 8px;
+  padding: 10px 12px;
+  font-family: 'SF Mono', Monaco, 'Cascadia Code', 'Consolas', monospace;
+  font-size: 12px;
+  line-height: 1.6;
+  overflow-x: auto;
+}
+
+.dict-row {
+  display: flex;
+  align-items: flex-start;
+  padding: 3px 0;
+  border-bottom: 1px solid rgba(0, 0, 0, 0.05);
+}
+
+.dict-row:last-child {
+  border-bottom: none;
+}
+
+.dict-key {
+  color: #0066cc;
+  font-weight: 500;
+  min-width: 100px;
+  flex-shrink: 0;
+  padding-right: 10px;
+}
+
+.dict-key::after {
+  content: ":";
+  color: #666;
+}
+
+.dict-value {
+  color: #333;
+  word-break: break-all;
+  flex: 1;
+}
+
+.dict-value.string {
+  color: #0d7377;
+}
+
+.dict-value.number {
+  color: #d84315;
+}
+
+.dict-value.boolean {
+  color: #7b1fa2;
+  font-weight: 500;
+}
+
+.dict-value.null {
+  color: #999;
+  font-style: italic;
+}
+
+.dict-value.nested {
+  width: 100%;
+}
+
+/* 折叠/展开按钮 */
+.dict-toggle {
+  cursor: pointer;
+  user-select: none;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  color: #666;
+  font-size: 11px;
+  margin-left: -14px;
+  padding: 2px 4px;
+  border-radius: 4px;
+  transition: background 0.2s;
+}
+
+.dict-toggle:hover {
+  background: rgba(0, 0, 0, 0.05);
+}
+
+.dict-toggle-icon {
+  font-size: 10px;
+  transition: transform 0.2s;
+}
+
+.dict-toggle.collapsed .dict-toggle-icon {
+  transform: rotate(-90deg);
+}
+
+.dict-nested {
+  margin-left: 16px;
+  padding-left: 10px;
+  border-left: 2px solid #e0e0e0;
+}
+
+.dict-nested.collapsed {
+  display: none;
+}
