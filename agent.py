@@ -1,296 +1,229 @@
-"""Agent核心逻辑模块
-
-实现自主决策的Agent系统，支持MCP工具调用和流式响应
-"""
-
-import asyncio
 import json
-import os
+import asyncio
+from pydantic import BaseModel
 from typing import Any
-from openai import AsyncOpenAI
-from memory import get_memory
-from config import MODEL_API_KEY, MODEL_URL, MODEL_NAME
-from fastapi import FastAPI, WebSocket, WebSocketDisconnect
-
-
-# 初始化 OpenAI 客户端
-ai_client = AsyncOpenAI(
-    base_url=OPENAI_BASE_URL,
-    api_key=OPENAI_API_KEY
-)
-
-
-# 系统提示词
-SYSTEM_PROMPT = """你是一个 helpful 的助手，可以根据用户需求调用工具来获取信息。
-
-当用户询问苹果数量或价格时，请使用相应的工具获取信息。
-用户说"苹果多少钱"时需要获取价格，说"有多少苹果"时需要获取数量。
-"""
-
-
-class Processor:
-    """消息处理器
-
-    负责通过 WebSocket 发送消息到客户端
-    """
-
-    def __init__(self, websocket: WebSocket):
-        """
-        Args:
-            websocket: WebSocket连接对象
-        """
-        self.ws = websocket
-
-    async def send(self, data: dict[str, Any]) -> None:
-        """发送消息到WebSocket
-
-        Args:
-            data: 要发送的数据
-
-        Raises:
-            ConnectionError: 当WebSocket连接已关闭时
-        """
-        try:
-            print(f"[Processor] 发送消息: {data}")
-            print(self.ws)
-            await self.ws.send_text(json.dumps(data))
-        except Exception as e:
-            print(f"[Processor] WebSocket发送失败: {e}")
-            # 抛出连接错误，让上层知道连接已断开
-            raise ConnectionError(f"WebSocket连接已关闭: {e}") from e
+from llm_client import llm, LLMClient
+from memory import Memory
+from tool import Tool
+from skill import Skill
+from tools.search import SearchTool
+from tools.calculator import CalculatorTool
+from tools.current_time import CurrentTimeTool
+from tools.weather import WeatherTool
 
 
 class Agent:
-    """Agent类
+    def __init__(
+        self,
+        tools: list[Tool],
+        skills: list[Skill],
+        memory: Memory,
+        prompt: str,
+        llm: LLMClient,
+    ):
+        self.tools = tools
+        self.skills = skills
+        self.memory = memory
+        self.prompt = prompt
+        self.llm = llm
 
-    处理用户对话，自主决策是否调用工具，支持流式响应
-    """
+    def build_system_prompt(self) -> str:
+        """构建完整的系统提示词"""
+        sections = []
 
-    def __init__(self, processor: Processor):
+        # 1. 基础角色设定
+        sections.append("# 角色设定")
+        sections.append(self.prompt)
+
+        # 2. 技能说明
+        if self.skills:
+            sections.append("\n# 你的技能")
+            for skill in self.skills:
+                sections.append(skill.to_prompt_section())
+
+        # 3. 工具说明
+        if self.tools:
+            sections.append("\n# 可用工具")
+            sections.append("你可以使用以下工具来完成任务，请根据需要调用：")
+            for tool in self.tools:
+                sections.append(f"\n- {tool.name}: {tool.desc}")
+
+        # 4. 通用约束
+        sections.append("\n# 重要约束")
+        sections.append(
+            """
+1. 请根据用户的请求，结合你的技能和可用工具来回答问题
+2. 如果需要使用工具，请直接调用，不要询问用户确认
+3. 如果工具返回结果，请基于结果给出完整回答
+"""
+        )
+
+        return "\n".join(sections)
+
+    def build_tools_for_llm(self) -> list[dict[str, Any]]:
+        """构建OpenAI格式的工具列表"""
+        return [tool.to_openai_format() for tool in self.tools]
+
+    async def chat(self, query: str) -> str:
         """
-        Args:
-            processor: 消息处理器，负责发送WebSocket消息
+        与Agent对话
+        返回完整响应文本
         """
-        self.processor = processor
-        self.memory = get_memory()
+        # 1. 将用户消息加入内存
+        self.memory.add_user_message(query)
 
-    async def chat(self, message: str, session_id: str) -> None:
-        """处理用户对话
+        # 2. 构建系统提示词
+        system_prompt = self.build_system_prompt()
 
-        Args:
-            message: 用户消息
-            session_id: 会话ID
-        """
-        # 1. 发送 received 确认
-        await self.processor.send({"type": "received"})
+        # 3. 构建完整消息列表
+        messages = [{"role": "system", "content": system_prompt}]
+        messages.extend(self.memory.get_messages())
 
-        # 2. 初始化会话（如果是新会话）
-        if not self.memory.has_session(session_id):
-            self.memory.add_system_message(session_id, SYSTEM_PROMPT)
+        # 4. 构建工具参数
+        tools = self.build_tools_for_llm()
 
-        # 3. 添加用户消息到记忆
-        self.memory.add_user_message(session_id, message)
+        # 5. 流式调用LLM（支持多轮工具调用，直到AI不再调用工具）
+        print("=" * 50)
+        print(f"用户: {query}")
+        print("-" * 50)
+        print("助手: ", end="", flush=True)
 
-        # 4. 进入对话循环（可能涉及多轮工具调用）
-        await self._chat_loop(session_id)
+        full_response = ""
 
-    async def _chat_loop(self, session_id: str) -> None:
-        """对话主循环，处理可能的工具调用和多轮对话
+        while True:
+            # 每次调用获取独立的流结果对象，避免并发冲突
+            stream_gen, stream_result = await self.llm.astream(messages, tools)
 
-        Args:
-            session_id: 会话ID
-        """
-        max_iterations = 5  # 防止无限循环
+            async for chunk in stream_gen:
+                print(chunk, end="", flush=True)
 
-        try:
-            for iteration in range(max_iterations):
-                # 获取当前记忆
-                messages = self.memory.get_messages(session_id)
-                print(messages)
+            print()  # 换行
 
-                # 调用OpenAI API（启用工具）
-                stream = await ai_client.chat.completions.create(
-                    model=MODEL_NAME,
-                    messages=messages,
-                    tools=[],
-                    stream=True
+            # 从独立结果对象获取完整响应和工具调用
+            full_response = stream_result.full_response
+            tool_calls = stream_result.tool_calls
+
+            # 检查是否有工具调用
+            if not tool_calls:
+                # 没有工具调用，将助手响应加入内存并结束
+                self.memory.add_assistant_message(
+                    content=full_response,
+                    tool_calls=None,
                 )
+                break
 
-                # 处理流式响应
-                result = await self._handle_stream(stream, session_id)
+            # 有工具调用，需要执行工具并继续对话
+            print(f"\n[工具调用] {len(tool_calls)} 个")
+            for tc in tool_calls:
+                func = tc["function"]
+                print(f"  - {func['name']}: {func['arguments']}")
 
-                if result["type"] == "message":
-                    # 纯文本响应，对话结束
-                    # 添加assistant消息到记忆
-                    self.memory.add_assistant_message(session_id, content=result["content"])
-                    # 发送 complete 标记
-                    await self.processor.send({"type": "complete"})
-                    return
+            # 将助手消息（含工具调用）加入内存
+            self.memory.add_assistant_message(
+                content=full_response,
+                tool_calls=tool_calls,
+            )
 
-                elif result["type"] == "tool_calls":
-                    # 需要调用工具
-                    tool_calls = result["tool_calls"]
+            # 执行工具并添加结果到内存
+            for tc in tool_calls:
+                tool_call_id = tc["id"]
+                func_name = tc["function"]["name"]
+                func_args = tc["function"]["arguments"]
 
-                    # 添加assistant消息（包含tool_calls）到记忆
-                    self.memory.add_assistant_message(
-                        session_id,
-                        content=result.get("content"),
-                        tool_calls=tool_calls
-                    )
+                result = await self._execute_tool(func_name, func_args)
+                self.memory.add_tool_result(tool_call_id, result)
 
-                    # 执行工具调用
-                    await self._execute_tools(tool_calls, session_id)
+            # 重新构建消息并调用 LLM
+            print("助手: ", end="", flush=True)
+            messages = [{"role": "system", "content": system_prompt}]
+            messages.extend(self.memory.get_messages())
 
-                    # 继续循环，让AI处理工具结果
-                    continue
+        return full_response
 
-            # 达到最大迭代次数，强制结束
-            await self.processor.send({"type": "complete"})
+    async def _execute_tool(self, func_name: str, func_args: str) -> str:
+        """执行工具并返回结果，从本地 tools 列表中查找"""
+        # 解析参数
+        try:
+            args = json.loads(func_args) if func_args else None
+        except json.JSONDecodeError:
+            return f"[错误] 工具参数解析失败: {func_args}"
 
-        except ConnectionError:
-            # WebSocket连接已关闭，退出循环
-            print(f"[Agent] 连接已关闭，停止对话循环 (session: {session_id})")
+        # 从 tools 列表中查找工具
+        tool = None
+        for t in self.tools:
+            if t.name == func_name:
+                tool = t
+                break
 
-    async def _handle_stream(self, stream: Any, session_id: str) -> dict[str, Any]:
-        """处理流式响应
+        if tool is None:
+            return f"[错误] 未知工具: {func_name}"
 
-        Args:
-            stream: OpenAI流式响应
-            session_id: 会话ID
-
-        Returns:
-            {"type": "message", "content": str} 或
-            {"type": "tool_calls", "tool_calls": [...], "content": str|None}
-        """
-        content_parts: list[str] = []
-        tool_calls_data: dict[int, dict[str, Any]] = {}
-        is_tool_call = False
-
-        # 发送 msg_start
-        await self.processor.send({"type": "msg_start"})
-
-        async for chunk in stream:
-            delta = chunk.choices[0].delta
-
-            # 处理普通内容
-            if delta.content:
-                content_parts.append(delta.content)
-                # 立即发送chunk
-                await self.processor.send({"type": "msg_chunk", "content": delta.content})
-
-            # 处理工具调用
-            if delta.tool_calls:
-                is_tool_call = True
-                for tc in delta.tool_calls:
-                    index = tc.index
-                    if index not in tool_calls_data:
-                        tool_calls_data[index] = {
-                            "id": "",
-                            "type": "function",
-                            "function": {"name": "", "arguments": ""}
-                        }
-
-                    # 累积tool_call数据
-                    if tc.id:
-                        tool_calls_data[index]["id"] = tc.id
-                    if tc.function:
-                        if tc.function.name:
-                            tool_calls_data[index]["function"]["name"] += tc.function.name
-                        if tc.function.arguments:
-                            tool_calls_data[index]["function"]["arguments"] += tc.function.arguments
-
-        # 发送 msg_end
-        await self.processor.send({"type": "msg_end"})
-
-        if is_tool_call:
-            # 整理tool_calls
-            tool_calls = [tool_calls_data[i] for i in sorted(tool_calls_data.keys())]
-            return {
-                "type": "tool_calls",
-                "tool_calls": tool_calls,
-                "content": "".join(content_parts) if content_parts else None
-            }
+        # 校验参数
+        if tool.input_schema is None:
+            # 无参数工具，args 必须为 None 或空 dict
+            if args is not None and args != {}:
+                return f"[错误] 工具 '{func_name}' 不需要参数，但传入了: {args}"
+            args = {}
         else:
-            return {
-                "type": "message",
-                "content": "".join(content_parts)
-            }
-
-    async def _execute_tools(self, tool_calls: list[dict], session_id: str) -> None:
-        """执行工具调用
-
-        Args:
-            tool_calls: 工具调用列表
-            session_id: 会话ID
-        """
-        # 发送 tool_start
-        await self.processor.send({"type": "tool_start", "tool_calls": tool_calls})
-
-        results: list[dict[str, Any]] = []
-
-        for tc in tool_calls:
-            function_name = tc["function"]["name"]
-            tool_call_id = tc["id"]
-
+            # 有参数工具，校验 args 是否符合 schema
             try:
-                # 解析参数
-                arguments = json.loads(tc["function"]["arguments"]) if tc["function"]["arguments"] else {}
-
-                # # 调用对应的工具函数
-                # if function_name in TOOL_MAP:
-                #     func = TOOL_MAP[function_name]
-                #     # 执行工具（同步函数用run_in_executor包装）
-                #     loop = asyncio.get_event_loop()
-                #     result = await loop.run_in_executor(None, func)
-
-                #     # 转换结果为字符串
-                #     if isinstance(result, (dict, list)):
-                #         result_str = json.dumps(result, ensure_ascii=False)
-                #     else:
-                #         result_str = str(result)
-
-                #     results.append({
-                #         "tool_call_id": tool_call_id,
-                #         "name": function_name,
-                #         "result": result_str,
-                #         "status": "success"
-                #     })
-
-                #     # 添加到记忆
-                #     self.memory.add_tool_result(session_id, tool_call_id, result_str, function_name)
-
-                # else:
-                #     error_msg = f"未知工具: {function_name}"
-                #     results.append({
-                #         "tool_call_id": tool_call_id,
-                #         "name": function_name,
-                #         "result": error_msg,
-                #         "status": "error"
-                #     })
-                #     self.memory.add_tool_result(session_id, tool_call_id, error_msg, function_name)
-
+                if args is None:
+                    args = {}
+                validated = tool.input_schema(**args)
+                args = validated.model_dump()
             except Exception as e:
-                error_msg = f"工具调用失败: {str(e)}"
-                results.append({
-                    "tool_call_id": tool_call_id,
-                    "name": function_name,
-                    "result": error_msg,
-                    "status": "error"
-                })
-                self.memory.add_tool_result(session_id, tool_call_id, error_msg, function_name)
+                return f"[错误] 工具 '{func_name}' 参数校验失败: {str(e)}"
 
-        # 发送 tool_end（包含结果）
-        await self.processor.send({"type": "tool_end", "results": results})
+        # 执行工具
+        try:
+            result = await tool.run(**args)
+            return str(result)
+        except Exception as e:
+            return f"[工具执行错误] {func_name}: {str(e)}"
 
 
-def create_agent(websocket: Any) -> Agent:
-    """创建Agent实例
+# ==================== 使用示例 ====================
 
-    Args:
-        websocket: WebSocket连接对象
+# 创建工具实例（无参数初始化）
+tools = [
+    SearchTool(),
+    CalculatorTool(),
+    CurrentTimeTool(),  # 无参数工具
+    WeatherTool(),  # 天气查询工具
+]
 
-    Returns:
-        Agent实例
-    """
-    processor = Processor(websocket)
-    return Agent(processor)
+# 创建技能
+skills = [
+    Skill(
+        name="天气助手",
+        desc="帮助用户获取实时天气",
+        content="""
+工作流程
+- 如果用户没有说明时间，那么调用工具查询当前时间
+- 根据上一步的时间，调用工具查询用户指定地点的天气
+- 尽可能简短的告知用户天气信息，例如：东京：18° 晴
+""",
+    )
+]
+
+# 初始化组件
+
+memory = Memory(session_id="demo_session", db_path="memory.db")
+agent = Agent(
+    tools=tools,
+    skills=skills,
+    memory=memory,
+    prompt="你是一个专业、友好的AI助手，请用中文回答问题。",
+    llm=llm,
+)
+
+
+async def main():
+    # 模拟对话
+    await agent.chat("告诉我上海天气、北京天气")
+    # print()
+    # await agent.chat("帮我分析data.csv的内容")
+
+
+if __name__ == "__main__":
+    asyncio.run(main())
