@@ -24,8 +24,8 @@ class Tool:
             raise NotImplementedError(f"{self.__class__.__name__} 必须定义 desc 类属性")
         # input_schema 可以为 None，表示工具无参数
 
-    async def run(self, **kwargs) -> str:
-        """执行工具，子类必须重写此方法"""
+    async def run(self, **kwargs) -> dict:
+        """执行工具，子类必须重写此方法，必须返回dict"""
         raise NotImplementedError(f"{self.__class__.__name__} 必须实现 run 方法")
 
     def to_openai_format(self) -> dict[str, Any]:

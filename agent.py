@@ -157,13 +157,13 @@ class Agent:
 
         return full_response
 
-    async def _execute_tool(self, func_name: str, func_args: str) -> str:
-        """执行工具并返回结果，从本地 tools 列表中查找"""
+    async def _execute_tool(self, func_name: str, func_args: str) -> dict:
+        """执行工具并返回dict结果，从本地 tools 列表中查找"""
         # 解析参数
         try:
             args = json.loads(func_args) if func_args else None
         except json.JSONDecodeError:
-            return f"[错误] 工具参数解析失败: {func_args}"
+            return {"error": "参数解析失败", "func_name": func_name, "args": func_args}
 
         # 从 tools 列表中查找工具
         tool = None
@@ -173,13 +173,13 @@ class Agent:
                 break
 
         if tool is None:
-            return f"[错误] 未知工具: {func_name}"
+            return {"error": "未知工具", "func_name": func_name}
 
         # 校验参数
         if tool.input_schema is None:
             # 无参数工具，args 必须为 None 或空 dict
             if args is not None and args != {}:
-                return f"[错误] 工具 '{func_name}' 不需要参数，但传入了: {args}"
+                return {"error": "工具不需要参数", "func_name": func_name, "args": args}
             args = {}
         else:
             # 有参数工具，校验 args 是否符合 schema
@@ -189,11 +189,14 @@ class Agent:
                 validated = tool.input_schema(**args)
                 args = validated.model_dump()
             except Exception as e:
-                return f"[错误] 工具 '{func_name}' 参数校验失败: {str(e)}"
+                return {"error": "参数校验失败", "func_name": func_name, "message": str(e)}
 
         # 执行工具
         try:
             result = await tool.run(**args)
-            return str(result)
+            # 确保返回的是dict
+            if not isinstance(result, dict):
+                return {"error": "工具返回类型错误", "func_name": func_name, "message": "工具必须返回dict类型"}
+            return result
         except Exception as e:
-            return f"[工具执行错误] {func_name}: {str(e)}"
+            return {"error": "工具执行错误", "func_name": func_name, "message": str(e)}

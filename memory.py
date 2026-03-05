@@ -70,9 +70,14 @@ class Memory:
         """添加助手消息"""
         self._insert_message(role="assistant", content=content, tool_calls=tool_calls)
 
-    def add_tool_result(self, tool_call_id: str, content: str):
-        """添加工具执行结果"""
-        self._insert_message(role="tool", content=content, tool_call_id=tool_call_id)
+    def add_tool_result(self, tool_call_id: str, content: str | dict):
+        """添加工具执行结果，支持str或dict类型"""
+        # 如果是dict，转换为JSON字符串
+        if isinstance(content, dict):
+            content_str = json.dumps(content, ensure_ascii=False)
+        else:
+            content_str = content
+        self._insert_message(role="tool", content=content_str, tool_call_id=tool_call_id)
 
     def get_messages(self) -> list[dict[str, Any]]:
         """获取所有历史消息"""
