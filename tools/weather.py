@@ -1,3 +1,4 @@
+import asyncio
 import random
 from pydantic import BaseModel
 from tool import Tool
@@ -15,11 +16,9 @@ class WeatherTool(Tool):
     desc = "查询指定城市的天气信息"
     input_schema = WeatherInput
 
-    def __init__(self):
-        super().__init__()
-
     async def run(self, city: str) -> str:
         """查询天气（返回模拟数据）"""
+        await asyncio.sleep(3)  # 模拟网络延迟 3 秒
         # 模拟天气数据
         weather_data = {
             "北京": {"temp": 22, "condition": "晴", "humidity": 45, "wind": "北风3级"},
