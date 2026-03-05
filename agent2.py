@@ -282,16 +282,13 @@ class Agent:
         # 4. 构建工具参数
         tools = self._build_tools_for_llm()
 
-        # 5. 流式调用LLM（支持多轮工具调用）
+        # 5. 流式调用LLM（支持多轮工具调用，直到AI不再调用工具）
         print("=" * 50)
         print(f"用户: {query}")
         print("-" * 50)
         print("助手: ", end="", flush=True)
 
-        max_tool_rounds = 5  # 防止无限循环
-        tool_round = 0
-
-        while tool_round < max_tool_rounds:
+        while True:
             async for chunk in self.llm.astream(messages, tools):
                 print(chunk, end="", flush=True)
 
@@ -307,8 +304,7 @@ class Agent:
                 break
 
             # 有工具调用，需要执行工具并继续对话
-            tool_round += 1
-            print(f"\n[工具调用] {len(self.llm.tool_calls)} 个 (第 {tool_round} 轮)")
+            print(f"\n[工具调用] {len(self.llm.tool_calls)} 个")
             for tc in self.llm.tool_calls:
                 func = tc["function"]
                 print(f"  - {func['name']}: {func['arguments']}")
