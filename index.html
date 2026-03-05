@@ -118,36 +118,177 @@
 
         /* 工具调用显示 */
         .tool-call {
-            background: #f0f4ff;
-            border: 1px solid #d0d8f0;
-            border-radius: 8px;
-            padding: 10px 14px;
-            margin: 8px 0;
+            background: linear-gradient(135deg, #f5f7fa 0%, #e4e8ec 100%);
+            border: 1px solid #d0d5dd;
+            border-radius: 12px;
+            padding: 14px 16px;
+            margin: 10px 0;
             font-size: 13px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.06);
+            transition: all 0.3s ease;
+        }
+
+        .tool-call:hover {
+            box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+            transform: translateY(-1px);
+        }
+
+        .tool-call.executing {
+            background: linear-gradient(135deg, #e8f4fd 0%, #d6e9f8 100%);
+            border-color: #4aa8ff;
+            animation: pulse-border 2s infinite;
+        }
+
+        .tool-call.success {
+            background: linear-gradient(135deg, #f0f9f0 0%, #e0f2e0 100%);
+            border-color: #5cb85c;
+        }
+
+        @keyframes pulse-border {
+            0%, 100% { border-color: #4aa8ff; }
+            50% { border-color: #80c5ff; }
         }
 
         .tool-call-header {
             display: flex;
             align-items: center;
-            gap: 8px;
-            color: #667eea;
-            font-weight: 500;
-            margin-bottom: 6px;
+            gap: 10px;
+            font-weight: 600;
+            margin-bottom: 10px;
+            font-size: 13px;
+        }
+
+        .tool-call.executing .tool-call-header {
+            color: #1a73e8;
+        }
+
+        .tool-call.success .tool-call-header {
+            color: #2e7d32;
         }
 
         .tool-call-icon {
-            font-size: 14px;
+            font-size: 16px;
+            width: 24px;
+            height: 24px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            border-radius: 50%;
+            background: rgba(255,255,255,0.8);
         }
 
-        .tool-call-content {
-            color: #555;
-            font-family: monospace;
+        .tool-call-section {
+            margin-top: 10px;
+        }
+
+        .tool-call-section-title {
+            font-size: 11px;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            color: #888;
+            margin-bottom: 6px;
+            font-weight: 600;
+        }
+
+        /* 字典/JSON 展示样式 */
+        .dict-container {
+            background: rgba(255,255,255,0.7);
+            border-radius: 8px;
+            padding: 10px 12px;
+            font-family: 'SF Mono', Monaco, 'Cascadia Code', monospace;
             font-size: 12px;
-            line-height: 1.5;
+            line-height: 1.6;
+            overflow-x: auto;
         }
 
-        .tool-call-content .label {
+        .dict-row {
+            display: flex;
+            align-items: flex-start;
+            padding: 3px 0;
+            border-bottom: 1px solid rgba(0,0,0,0.05);
+        }
+
+        .dict-row:last-child {
+            border-bottom: none;
+        }
+
+        .dict-key {
+            color: #0066cc;
+            font-weight: 500;
+            min-width: 100px;
+            flex-shrink: 0;
+            padding-right: 10px;
+        }
+
+        .dict-key::after {
+            content: ":";
+            color: #666;
+        }
+
+        .dict-value {
+            color: #333;
+            word-break: break-all;
+            flex: 1;
+        }
+
+        .dict-value.string {
+            color: #0d7377;
+        }
+
+        .dict-value.number {
+            color: #d84315;
+        }
+
+        .dict-value.boolean {
+            color: #7b1fa2;
+            font-weight: 500;
+        }
+
+        .dict-value.null {
             color: #999;
+            font-style: italic;
+        }
+
+        .dict-value.nested {
+            width: 100%;
+        }
+
+        /* 折叠/展开按钮 */
+        .dict-toggle {
+            cursor: pointer;
+            user-select: none;
+            display: inline-flex;
+            align-items: center;
+            gap: 4px;
+            color: #666;
+            font-size: 11px;
+            margin-left: -14px;
+            padding: 2px 4px;
+            border-radius: 4px;
+            transition: background 0.2s;
+        }
+
+        .dict-toggle:hover {
+            background: rgba(0,0,0,0.05);
+        }
+
+        .dict-toggle-icon {
+            font-size: 10px;
+            transition: transform 0.2s;
+        }
+
+        .dict-toggle.collapsed .dict-toggle-icon {
+            transform: rotate(-90deg);
+        }
+
+        .dict-nested {
+            margin-left: 16px;
+            padding-left: 10px;
+            border-left: 2px solid #e0e0e0;
+        }
+
+        .dict-nested.collapsed {
+            display: none;
         }
 
         /* 思考指示器 */
@@ -356,39 +497,65 @@
             return msgDiv.querySelector('.message-content');
         }
 
-        // 添加工具调用显示
-        function addToolCall(name, args, isResult = false) {
+        // 添加工具调用显示（调用前）
+        function addToolCall(name, args) {
             const toolDiv = document.createElement('div');
-            toolDiv.className = 'tool-call';
-            const icon = isResult ? '✓' : '⚙️';
-            const title = isResult ? '工具执行完成' : '正在调用工具';
+            toolDiv.className = 'tool-call executing';
+            toolDiv.id = `tool-${name}-${Date.now()}`;
+
+            // 解析参数（如果是字符串）
+            let parsedArgs = args;
+            if (typeof args === 'string') {
+                try { parsedArgs = JSON.parse(args); } catch(e) {}
+            }
+
             toolDiv.innerHTML = `
                 <div class="tool-call-header">
-                    <span class="tool-call-icon">${icon}</span>
-                    <span>${title}: ${escapeHtml(name)}</span>
+                    <span class="tool-call-icon">⚙️</span>
+                    <span>正在调用: ${escapeHtml(name)}</span>
                 </div>
-                <div class="tool-call-content">
-                    <span class="label">参数:</span> ${escapeHtml(JSON.stringify(args))}
+                <div class="tool-call-section">
+                    <div class="tool-call-section-title">参数</div>
+                    ${formatDict(parsedArgs)}
                 </div>
             `;
             messagesEl.appendChild(toolDiv);
             scrollToBottom();
+            return toolDiv.id;
         }
 
-        // 添加工具结果
+        // 添加工具结果（调用后）
         function addToolResult(results) {
             results.forEach(result => {
                 const toolDiv = document.createElement('div');
-                toolDiv.className = 'tool-call';
-                toolDiv.style.background = '#f0fff0';
-                toolDiv.style.borderColor = '#d0f0d0';
+                toolDiv.className = 'tool-call success';
+
+                // 解析结果（如果是字符串JSON）
+                let parsedResult = result.result;
+                if (typeof result.result === 'string') {
+                    try { parsedResult = JSON.parse(result.result); } catch(e) {}
+                }
+
+                // 检查是否有错误
+                const hasError = parsedResult && typeof parsedResult === 'object' && parsedResult.error;
+                if (hasError) {
+                    toolDiv.className = 'tool-call';
+                    toolDiv.style.background = 'linear-gradient(135deg, #fff5f5 0%, #ffe0e0 100%)';
+                    toolDiv.style.borderColor = '#ff6b6b';
+                }
+
+                const icon = hasError ? '❌' : '✓';
+                const title = hasError ? '执行失败' : '执行完成';
+                const headerColor = hasError ? '#d32f2f' : '#2e7d32';
+
                 toolDiv.innerHTML = `
-                    <div class="tool-call-header" style="color: #44aa44;">
-                        <span class="tool-call-icon">✓</span>
-                        <span>${escapeHtml(result.name)} 执行完成</span>
+                    <div class="tool-call-header" style="color: ${headerColor}">
+                        <span class="tool-call-icon">${icon}</span>
+                        <span>${escapeHtml(result.name)} ${title}</span>
                     </div>
-                    <div class="tool-call-content">
-                        <span class="label">结果:</span> ${escapeHtml(String(result.result))}
+                    <div class="tool-call-section">
+                        <div class="tool-call-section-title">${hasError ? '错误信息' : '返回结果'}</div>
+                        ${formatDict(parsedResult)}
                     </div>
                 `;
                 messagesEl.appendChild(toolDiv);
@@ -429,6 +596,80 @@
             const div = document.createElement('div');
             div.textContent = text;
             return div.innerHTML;
+        }
+
+        // 格式化值类型
+        function formatValueType(value) {
+            if (value === null) return '<span class="dict-value null">null</span>';
+            if (typeof value === 'boolean') return `<span class="dict-value boolean">${value}</span>`;
+            if (typeof value === 'number') return `<span class="dict-value number">${value}</span>`;
+            if (typeof value === 'string') return `<span class="dict-value string">"${escapeHtml(value)}"</span>`;
+            return `<span class="dict-value">${escapeHtml(String(value))}</span>`;
+        }
+
+        // 递归格式化字典/对象为美观的HTML
+        function formatDict(data, level = 0, isRoot = true) {
+            if (data === null || typeof data !== 'object') {
+                return formatValueType(data);
+            }
+
+            const isArray = Array.isArray(data);
+            const entries = isArray ? data : Object.entries(data);
+            const isEmpty = isArray ? data.length === 0 : Object.keys(data).length === 0;
+
+            if (isEmpty) {
+                return `<span class="dict-value">${isArray ? '[]' : '{}'}</span>`;
+            }
+
+            let html = '';
+
+            // 递归处理每个条目
+            if (isArray) {
+                entries.forEach((item, index) => {
+                    html += '<div class="dict-row">';
+                    html += `<span class="dict-key">[${index}]</span>`;
+                    if (item !== null && typeof item === 'object') {
+                        html += `<div class="dict-value nested">${formatDict(item, level + 1, false)}</div>`;
+                    } else {
+                        html += formatValueType(item);
+                    }
+                    html += '</div>';
+                });
+            } else {
+                entries.forEach(([key, value]) => {
+                    html += '<div class="dict-row">';
+                    html += `<span class="dict-key">${escapeHtml(key)}</span>`;
+                    if (value !== null && typeof value === 'object') {
+                        html += `<div class="dict-value nested">${formatDict(value, level + 1, false)}</div>`;
+                    } else {
+                        html += formatValueType(value);
+                    }
+                    html += '</div>';
+                });
+            }
+
+            if (isRoot) {
+                return `<div class="dict-container">${html}</div>`;
+            }
+            return html;
+        }
+
+        // 简化版字典展示（用于紧凑显示）
+        function formatDictCompact(data) {
+            if (data === null || typeof data !== 'object') {
+                return String(data);
+            }
+            const entries = Object.entries(data);
+            if (entries.length === 0) return '{}';
+
+            const preview = entries.slice(0, 3).map(([k, v]) => {
+                let val = v;
+                if (v !== null && typeof v === 'object') val = '{...}';
+                else if (typeof v === 'string') val = `"${v.substring(0, 20)}${v.length > 20 ? '...' : ''}"`;
+                return `${k}: ${val}`;
+            }).join(', ');
+
+            return entries.length > 3 ? `{${preview}, ...}` : `{${preview}}`;
         }
 
         // 连接 WebSocket
