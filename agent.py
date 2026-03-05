@@ -1,15 +1,9 @@
 import json
-import asyncio
-from pydantic import BaseModel
 from typing import Any
-from llm_client import llm, LLMClient
+from llm_client import LLMClient
 from memory import Memory
 from tool import Tool
 from skill import Skill
-from tools.search import SearchTool
-from tools.calculator import CalculatorTool
-from tools.current_time import CurrentTimeTool
-from tools.weather import WeatherTool
 
 
 class Agent:
@@ -180,50 +174,3 @@ class Agent:
             return str(result)
         except Exception as e:
             return f"[工具执行错误] {func_name}: {str(e)}"
-
-
-# ==================== 使用示例 ====================
-
-# 创建工具实例（无参数初始化）
-tools = [
-    SearchTool(),
-    CalculatorTool(),
-    CurrentTimeTool(),  # 无参数工具
-    WeatherTool(),  # 天气查询工具
-]
-
-# 创建技能
-skills = [
-    Skill(
-        name="天气助手",
-        desc="帮助用户获取实时天气",
-        content="""
-工作流程
-- 如果用户没有说明时间，那么调用工具查询当前时间
-- 根据上一步的时间，调用工具查询用户指定地点的天气
-- 尽可能简短的告知用户天气信息，例如：东京：18° 晴
-""",
-    )
-]
-
-# 初始化组件
-
-memory = Memory(session_id="demo_session", db_path="memory.db")
-agent = Agent(
-    tools=tools,
-    skills=skills,
-    memory=memory,
-    prompt="你是一个专业、友好的AI助手，请用中文回答问题。",
-    llm=llm,
-)
-
-
-async def main():
-    # 模拟对话
-    await agent.chat("告诉我上海天气、北京天气")
-    # print()
-    # await agent.chat("帮我分析data.csv的内容")
-
-
-if __name__ == "__main__":
-    asyncio.run(main())
