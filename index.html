@@ -497,8 +497,16 @@
             return msgDiv.querySelector('.message-content');
         }
 
+        // 当前工具调用气泡的引用
+        let currentToolCall = null;
+
         // 添加工具调用显示（调用前）
         function addToolCall(name, args) {
+            // 如果已有工具调用气泡，先移除
+            if (currentToolCall) {
+                currentToolCall.remove();
+            }
+
             const toolDiv = document.createElement('div');
             toolDiv.className = 'tool-call executing';
             toolDiv.id = `tool-${name}-${Date.now()}`;
@@ -509,27 +517,35 @@
                 try { parsedArgs = JSON.parse(args); } catch(e) {}
             }
 
+            // 保存原始数据用于后续更新
+            toolDiv.dataset.name = name;
+            toolDiv.dataset.args = JSON.stringify(parsedArgs);
+
             toolDiv.innerHTML = `
                 <div class="tool-call-header">
                     <span class="tool-call-icon">⚙️</span>
                     <span>正在调用: ${escapeHtml(name)}</span>
                 </div>
-                <div class="tool-call-section">
-                    <div class="tool-call-section-title">参数</div>
+                <div class="tool-call-section" id="tool-params-${toolDiv.id}">
+                    <div class="tool-call-section-title">输入参数</div>
                     ${formatDict(parsedArgs)}
+                </div>
+                <div class="tool-call-section" id="tool-result-${toolDiv.id}" style="display: none;">
+                    <div class="tool-call-section-title">返回结果</div>
+                    <div class="tool-result-content"></div>
                 </div>
             `;
             messagesEl.appendChild(toolDiv);
             scrollToBottom();
+
+            // 保存引用
+            currentToolCall = toolDiv;
             return toolDiv.id;
         }
 
-        // 添加工具结果（调用后）
+        // 添加工具结果（调用后）- 更新现有气泡
         function addToolResult(results) {
             results.forEach(result => {
-                const toolDiv = document.createElement('div');
-                toolDiv.className = 'tool-call success';
-
                 // 解析结果（如果是字符串JSON）
                 let parsedResult = result.result;
                 if (typeof result.result === 'string') {
@@ -538,29 +554,66 @@
 
                 // 检查是否有错误
                 const hasError = parsedResult && typeof parsedResult === 'object' && parsedResult.error;
-                if (hasError) {
-                    toolDiv.className = 'tool-call';
-                    toolDiv.style.background = 'linear-gradient(135deg, #fff5f5 0%, #ffe0e0 100%)';
-                    toolDiv.style.borderColor = '#ff6b6b';
-                }
 
-                const icon = hasError ? '❌' : '✓';
-                const title = hasError ? '执行失败' : '执行完成';
-                const headerColor = hasError ? '#d32f2f' : '#2e7d32';
+                // 如果有当前工具调用气泡，更新它
+                if (currentToolCall) {
+                    // 更新样式
+                    currentToolCall.className = hasError ? 'tool-call' : 'tool-call success';
+                    if (hasError) {
+                        currentToolCall.style.background = 'linear-gradient(135deg, #fff5f5 0%, #ffe0e0 100%)';
+                        currentToolCall.style.borderColor = '#ff6b6b';
+                    } else {
+                        currentToolCall.style.background = '';
+                        currentToolCall.style.borderColor = '';
+                    }
 
-                toolDiv.innerHTML = `
-                    <div class="tool-call-header" style="color: ${headerColor}">
+                    // 更新头部
+                    const icon = hasError ? '❌' : '✓';
+                    const title = hasError ? '执行失败' : '执行完成';
+                    const headerColor = hasError ? '#d32f2f' : '#2e7d32';
+                    const headerEl = currentToolCall.querySelector('.tool-call-header');
+                    headerEl.innerHTML = `
                         <span class="tool-call-icon">${icon}</span>
-                        <span>${escapeHtml(result.name)} ${title}</span>
-                    </div>
-                    <div class="tool-call-section">
-                        <div class="tool-call-section-title">${hasError ? '错误信息' : '返回结果'}</div>
-                        ${formatDict(parsedResult)}
-                    </div>
-                `;
-                messagesEl.appendChild(toolDiv);
+                        <span style="color: ${headerColor}">${escapeHtml(result.name)} ${title}</span>
+                    `;
+
+                    // 显示并更新结果区域
+                    const resultSection = currentToolCall.querySelector(`#tool-result-${currentToolCall.id}`);
+                    const resultTitle = resultSection.querySelector('.tool-call-section-title');
+                    const resultContent = resultSection.querySelector('.tool-result-content');
+
+                    resultTitle.textContent = hasError ? '错误信息' : '返回结果';
+                    resultContent.innerHTML = formatDict(parsedResult);
+                    resultSection.style.display = 'block';
+                } else {
+                    // 如果没有找到当前工具调用，创建新的结果气泡（备用方案）
+                    const toolDiv = document.createElement('div');
+                    toolDiv.className = hasError ? 'tool-call' : 'tool-call success';
+                    if (hasError) {
+                        toolDiv.style.background = 'linear-gradient(135deg, #fff5f5 0%, #ffe0e0 100%)';
+                        toolDiv.style.borderColor = '#ff6b6b';
+                    }
+
+                    const icon = hasError ? '❌' : '✓';
+                    const title = hasError ? '执行失败' : '执行完成';
+                    const headerColor = hasError ? '#d32f2f' : '#2e7d32';
+
+                    toolDiv.innerHTML = `
+                        <div class="tool-call-header" style="color: ${headerColor}">
+                            <span class="tool-call-icon">${icon}</span>
+                            <span>${escapeHtml(result.name)} ${title}</span>
+                        </div>
+                        <div class="tool-call-section">
+                            <div class="tool-call-section-title">${hasError ? '错误信息' : '返回结果'}</div>
+                            ${formatDict(parsedResult)}
+                        </div>
+                    `;
+                    messagesEl.appendChild(toolDiv);
+                }
             });
             scrollToBottom();
+            // 清空当前工具调用引用
+            currentToolCall = null;
         }
 
         // 显示思考中
@@ -759,6 +812,7 @@
                     sendBtn.disabled = false;
                     hideThinking();
                     currentAssistantMessage = null;
+                    currentToolCall = null;  // 清理工具调用引用
                     inputEl.focus();
                     break;
 
@@ -770,6 +824,7 @@
                     hideThinking();
                     showError(data.error || '未知错误');
                     currentAssistantMessage = null;
+                    currentToolCall = null;  // 清理工具调用引用
                     break;
             }
         }
