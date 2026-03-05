@@ -10,7 +10,13 @@ class CurrentTimeTool(Tool):
     desc = "获取当前系统时间"
     input_schema = None  # 无参数
 
-    async def run(self) -> str:
+    async def run(self) -> dict:
         """获取当前时间"""
         await asyncio.sleep(3)  # 模拟网络延迟 3 秒
-        return f"当前时间: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}"
+        now = datetime.now()
+        return {
+            "datetime": now.strftime('%Y-%m-%d %H:%M:%S'),
+            "date": now.strftime('%Y-%m-%d'),
+            "time": now.strftime('%H:%M:%S'),
+            "timestamp": int(now.timestamp()),
+        }

@@ -16,7 +16,7 @@ class WeatherTool(Tool):
     desc = "查询指定城市的天气信息"
     input_schema = WeatherInput
 
-    async def run(self, city: str) -> str:
+    async def run(self, city: str) -> dict:
         """查询天气（返回模拟数据）"""
         await asyncio.sleep(3)  # 模拟网络延迟 3 秒
         # 模拟天气数据
@@ -41,4 +41,10 @@ class WeatherTool(Tool):
                 "wind": random.choice(["北风2级", "南风2级", "东风1级", "静风"]),
             }
 
-        return f"{city}: {data['temp']}°, {data['condition']}, 湿度{data['humidity']}%, {data['wind']}"
+        return {
+            "city": city,
+            "temperature": data["temp"],
+            "condition": data["condition"],
+            "humidity": data["humidity"],
+            "wind": data["wind"],
+        }
