@@ -335,9 +335,9 @@ class Agent:
         """执行工具并返回结果，从本地 tools 列表中查找"""
         # 解析参数
         try:
-            args = json.loads(func_args)
+            args = json.loads(func_args) if func_args else None
         except json.JSONDecodeError:
-            args = {}
+            return f"[错误] 工具参数解析失败: {func_args}"
 
         # 从 tools 列表中查找工具
         tool = None
@@ -348,6 +348,22 @@ class Agent:
 
         if tool is None:
             return f"[错误] 未知工具: {func_name}"
+
+        # 校验参数
+        if tool.input_schema is None:
+            # 无参数工具，args 必须为 None 或空 dict
+            if args is not None and args != {}:
+                return f"[错误] 工具 '{func_name}' 不需要参数，但传入了: {args}"
+            args = {}
+        else:
+            # 有参数工具，校验 args 是否符合 schema
+            try:
+                if args is None:
+                    args = {}
+                validated = tool.input_schema(**args)
+                args = validated.model_dump()
+            except Exception as e:
+                return f"[错误] 工具 '{func_name}' 参数校验失败: {str(e)}"
 
         # 执行工具
         try:
@@ -469,9 +485,9 @@ agent = Agent(
 
 async def main():
     # 模拟对话
-    await agent.chat("告诉我当前时间和今日天气")
-    print()
-    await agent.chat("帮我分析data.csv的内容")
+    await agent.chat("告诉我当前时刻上海天气、当前时刻北京天气，你可以一次性调用多个工具")
+    # print()
+    # await agent.chat("帮我分析data.csv的内容")
 
 
 if __name__ == "__main__":
