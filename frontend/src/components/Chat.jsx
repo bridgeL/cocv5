@@ -53,6 +53,7 @@ export default function Chat() {
       ws.onmessage = (event) => {
         try {
           const data = JSON.parse(event.data);
+          console.log('[WS Receive]', data.type, data);
           handleMessage(data);
         } catch (e) {
           console.error('Failed to parse message:', e);
@@ -247,10 +248,9 @@ export default function Chat() {
     setMessages(prev => [...prev, { type: 'user', content: text }]);
     setInput('');
 
-    wsRef.current.send(JSON.stringify({
-      type: 'agent_chat',
-      message: text
-    }));
+    const msg = { type: 'agent_chat', message: text };
+    console.log('[WS Send]', msg);
+    wsRef.current.send(JSON.stringify(msg));
   }, [input, isProcessing]);
 
   // 处理键盘事件

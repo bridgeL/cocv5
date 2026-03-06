@@ -51,6 +51,7 @@ class WebSocketConnection:
         """发送消息到客户端"""
         try:
             message = {"type": msg_type, **data}
+            print(f"[WS Send] {msg_type}: {data}")
             await self.websocket.send_text(json.dumps(message))
         except WebSocketDisconnect:
             # 客户端已断开，静默忽略
@@ -78,6 +79,8 @@ class WebSocketConnection:
                 except json.JSONDecodeError:
                     data = {"type": "raw", "data": text}
                     msg_type = "raw"
+
+                print(f"[WS Receive] {msg_type}: {data}")
 
                 # 处理不同类型的消息
                 await self._handle_message(msg_type, data)
