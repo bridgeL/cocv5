@@ -39,8 +39,8 @@ export default function Chat() {
       if (isConnecting || wsRef.current?.readyState === WebSocket.OPEN) return;
       isConnecting = true;
 
-      const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
-      const wsUrl = `${protocol}//${window.location.host}/ws`;
+      // 直连后端 WebSocket，不经过 Vite 代理
+      const wsUrl = 'ws://127.0.0.1:8080/ws';
 
       const ws = new WebSocket(wsUrl);
       wsRef.current = ws;
