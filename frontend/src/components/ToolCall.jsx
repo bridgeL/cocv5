@@ -1,6 +1,6 @@
 import './ToolCall.css';
 
-export default function ToolCall({ name, args, result, status }) {
+export default function ToolCall({ name, args, result, status, collapsed, onToggle }) {
   // 解析参数和结果
   let parsedArgs = args;
   if (typeof args === 'string') {
@@ -20,42 +20,38 @@ export default function ToolCall({ name, args, result, status }) {
   const isSuccess = status === 'success' && !hasError;
   const isError = status === 'error' || hasError;
 
-  // 样式类
-  const className = `tool-call ${isExecuting ? 'executing' : ''} ${isSuccess ? 'success' : ''} ${isError ? 'error' : ''}`;
-
-  // 图标和标题
-  let icon = '⚙️';
-  let title = `调用工具：${name}`;
-  if (isSuccess) {
-    icon = '✓';
-    title = `调用工具：${name}`;
-  } else if (isError) {
-    icon = '❌';
-    title = `调用工具：${name}`;
-  }
-
   // 格式化 JSON 显示
   const formatJson = (data) => {
     if (data === undefined || data === null) return '{}';
     return JSON.stringify(data, null, 2);
   };
 
+  // 气泡框样式类
+  const boxClassName = `tool-call-box ${isExecuting ? 'executing' : ''} ${isSuccess ? 'success' : ''} ${isError ? 'error' : ''}`;
+
   return (
-    <div className={className}>
-      <div className="tool-call-header">
-        <span className="tool-call-icon">{icon}</span>
-        <span>{title}</span>
+    <div
+      className={`message tool ${collapsed ? 'collapsed' : ''}`}
+      onClick={onToggle}
+      title={collapsed ? '点击展开' : '点击折叠'}
+    >
+      <div className="message-header">
+        调用工具：{name} {collapsed ? '▶' : '▼'}
       </div>
 
-      <div className="tool-call-section">
-        <div className="tool-call-section-title">输入参数：</div>
-        <pre className="tool-call-json">{formatJson(parsedArgs)}</pre>
-      </div>
+      {!collapsed && (
+        <div className={boxClassName}>
+          <div className="tool-call-section">
+            <div className="tool-call-section-title">输入参数：</div>
+            <pre className="tool-call-json">{formatJson(parsedArgs)}</pre>
+          </div>
 
-      {result !== undefined && (
-        <div className="tool-call-section">
-          <div className="tool-call-section-title">{hasError ? '错误信息：' : '返回结果：'}</div>
-          <pre className="tool-call-json">{formatJson(parsedResult)}</pre>
+          {result !== undefined && (
+            <div className="tool-call-section">
+              <div className="tool-call-section-title">{hasError ? '错误信息：' : '返回结果：'}</div>
+              <pre className="tool-call-json">{formatJson(parsedResult)}</pre>
+            </div>
+          )}
         </div>
       )}
     </div>
