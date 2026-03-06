@@ -1,4 +1,3 @@
-import DictViewer from './DictViewer';
 import './ToolCall.css';
 
 export default function ToolCall({ name, args, result, status }) {
@@ -26,14 +25,20 @@ export default function ToolCall({ name, args, result, status }) {
 
   // 图标和标题
   let icon = '⚙️';
-  let title = `正在调用: ${name}`;
+  let title = `调用工具：${name}`;
   if (isSuccess) {
     icon = '✓';
-    title = `${name} 执行完成`;
+    title = `调用工具：${name}`;
   } else if (isError) {
     icon = '❌';
-    title = `${name} 执行失败`;
+    title = `调用工具：${name}`;
   }
+
+  // 格式化 JSON 显示
+  const formatJson = (data) => {
+    if (data === undefined || data === null) return '{}';
+    return JSON.stringify(data, null, 2);
+  };
 
   return (
     <div className={className}>
@@ -43,14 +48,14 @@ export default function ToolCall({ name, args, result, status }) {
       </div>
 
       <div className="tool-call-section">
-        <div className="tool-call-section-title">输入参数</div>
-        <DictViewer data={parsedArgs} />
+        <div className="tool-call-section-title">输入参数：</div>
+        <pre className="tool-call-json">{formatJson(parsedArgs)}</pre>
       </div>
 
       {result !== undefined && (
         <div className="tool-call-section">
-          <div className="tool-call-section-title">{hasError ? '错误信息' : '返回结果'}</div>
-          <DictViewer data={parsedResult} />
+          <div className="tool-call-section-title">{hasError ? '错误信息：' : '返回结果：'}</div>
+          <pre className="tool-call-json">{formatJson(parsedResult)}</pre>
         </div>
       )}
     </div>
