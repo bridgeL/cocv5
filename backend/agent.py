@@ -95,6 +95,8 @@ class StreamBuffer:
                 if self.state == StreamState.NORMAL:
                     self.state = StreamState.IN_THINK
                     await self._send_event("think_start")
+                    # 去掉标签后开头的换行符，避免气泡出现空行
+                    after = after.lstrip("\n")
                 else:
                     # 嵌套情况，当作普通内容
                     self.content_buffer += tag
@@ -109,6 +111,8 @@ class StreamBuffer:
                 if self.state == StreamState.NORMAL:
                     self.state = StreamState.IN_REPORT
                     await self._send_event("report_start")
+                    # 去掉标签后开头的换行符，避免气泡出现空行
+                    after = after.lstrip("\n")
                 else:
                     self.content_buffer += tag
             elif tag == "</汇报>":
