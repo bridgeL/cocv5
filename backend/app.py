@@ -1,6 +1,7 @@
 import asyncio
 from fastapi import FastAPI, WebSocket
 from fastapi.responses import HTMLResponse
+from fastapi.middleware.cors import CORSMiddleware
 import uvicorn
 
 from ws import handle_websocket
@@ -8,6 +9,15 @@ from ws import handle_websocket
 
 # 创建 FastAPI 应用
 app = FastAPI(title="WebSocket Demo HTTP Server")
+
+# 配置 CORS
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
 
 
 @app.get("/", response_class=HTMLResponse)
