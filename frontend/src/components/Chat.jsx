@@ -359,7 +359,7 @@ export default function Chat() {
                 title={collapsed ? '点击展开' : '点击折叠'}
               >
                 <div className="message-header">
-                  思考中 {collapsed ? '▶' : '▼'}
+                  思考 {collapsed ? '▶' : '▼'}
                 </div>
                 {!collapsed && (
                   <div className="message-content">
