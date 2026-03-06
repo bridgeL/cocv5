@@ -11,6 +11,11 @@ export default function Chat() {
   const [currentToolCall, setCurrentToolCall] = useState(null);
   const [error, setError] = useState(null);
 
+  // 气泡折叠状态：'all-collapsed' | 'custom' | 'all-expanded'
+  const [collapseMode, setCollapseMode] = useState('all-expanded');
+  // 单个气泡的折叠状态，key 为消息索引
+  const [collapsedItems, setCollapsedItems] = useState(new Set());
+
   const wsRef = useRef(null);
   const messagesEndRef = useRef(null);
   const currentAssistantMsgRef = useRef(null);
@@ -20,6 +25,40 @@ export default function Chat() {
     type: null, // 'think' | 'report' | 'normal'
     messageId: null
   });
+
+  // 判断指定索引的气泡是否折叠
+  const isCollapsed = useCallback((index, type) => {
+    if (collapseMode === 'all-collapsed') return true;
+    if (collapseMode === 'all-expanded') return false;
+    // custom 模式
+    return collapsedItems.has(index);
+  }, [collapseMode, collapsedItems]);
+
+  // 切换单个气泡的折叠状态
+  const toggleItemCollapse = useCallback((index) => {
+    setCollapseMode('custom');
+    setCollapsedItems(prev => {
+      const newSet = new Set(prev);
+      if (newSet.has(index)) {
+        newSet.delete(index);
+      } else {
+        newSet.add(index);
+      }
+      return newSet;
+    });
+  }, []);
+
+  // 切换全局折叠模式
+  const toggleCollapseMode = useCallback(() => {
+    setCollapseMode(prev => {
+      if (prev === 'all-collapsed') return 'all-expanded';
+      if (prev === 'all-expanded') return 'all-collapsed';
+      // 从 custom 切换到 all-expanded
+      return 'all-expanded';
+    });
+    // 切换全局模式时清空自定义状态
+    setCollapsedItems(new Set());
+  }, []);
 
   // 滚动到底部
   const scrollToBottom = useCallback(() => {
@@ -272,7 +311,30 @@ export default function Chat() {
             <span>{isConnected ? '已连接' : '连接中...'}</span>
           </div>
         </div>
-        {sessionId && <div className="session-id">Session: {sessionId}</div>}
+        <div className="header-right">
+          {/* 气泡折叠开关 */}
+          <div className="collapse-toggle" title="折叠/展开气泡">
+            <button
+              className={collapseMode === 'all-collapsed' ? 'active' : ''}
+              onClick={() => { setCollapseMode('all-collapsed'); setCollapsedItems(new Set()); }}
+            >
+              折叠
+            </button>
+            <button
+              className={collapseMode === 'custom' ? 'active' : ''}
+              onClick={() => { setCollapseMode('custom'); setCollapsedItems(new Set()); }}
+            >
+              自定义
+            </button>
+            <button
+              className={collapseMode === 'all-expanded' ? 'active' : ''}
+              onClick={() => { setCollapseMode('all-expanded'); setCollapsedItems(new Set()); }}
+            >
+              展开
+            </button>
+          </div>
+          {sessionId && <div className="session-id">Session: {sessionId}</div>}
+        </div>
       </header>
 
       {/* 消息区域 */}
@@ -288,12 +350,22 @@ export default function Chat() {
           }
 
           if (msg.type === 'think') {
+            const collapsed = isCollapsed(index, 'think');
             return (
-              <div key={index} className="message think">
-                <div className="message-header">思考中</div>
-                <div className="message-content">
-                  {msg.content || <span className="thinking-dots-inline"><span></span><span></span><span></span></span>}
+              <div
+                key={index}
+                className={`message think ${collapsed ? 'collapsed' : ''}`}
+                onClick={() => toggleItemCollapse(index)}
+                title={collapsed ? '点击展开' : '点击折叠'}
+              >
+                <div className="message-header">
+                  思考中 {collapsed ? '▶' : '▼'}
                 </div>
+                {!collapsed && (
+                  <div className="message-content">
+                    {msg.content || <span className="thinking-dots-inline"><span></span><span></span><span></span></span>}
+                  </div>
+                )}
               </div>
             );
           }
@@ -315,6 +387,8 @@ export default function Chat() {
                 args={msg.args}
                 result={msg.result}
                 status={msg.status}
+                collapsed={isCollapsed(index, 'tool')}
+                onToggle={() => toggleItemCollapse(index)}
               />
             );
           }
