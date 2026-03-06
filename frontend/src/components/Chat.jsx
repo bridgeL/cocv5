@@ -26,7 +26,13 @@ export default function Chat() {
 
   // WebSocket 连接
   useEffect(() => {
+    let isConnecting = false;
+    let reconnectTimer = null;
+
     const connect = () => {
+      if (isConnecting || wsRef.current?.readyState === WebSocket.OPEN) return;
+      isConnecting = true;
+
       const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
       const wsUrl = `${protocol}//${window.location.host}/ws`;
 
@@ -35,6 +41,7 @@ export default function Chat() {
 
       ws.onopen = () => {
         console.log('WebSocket connected');
+        isConnecting = false;
       };
 
       ws.onmessage = (event) => {
@@ -49,12 +56,14 @@ export default function Chat() {
       ws.onclose = () => {
         console.log('WebSocket disconnected');
         setIsConnected(false);
-        setTimeout(connect, 3000);
+        isConnecting = false;
+        reconnectTimer = setTimeout(connect, 3000);
       };
 
       ws.onerror = (error) => {
         console.error('WebSocket error:', error);
         setError('连接出错');
+        isConnecting = false;
       };
     };
 
@@ -63,6 +72,7 @@ export default function Chat() {
         case 'session_init':
           setSessionId(data.session_id);
           setIsConnected(true);
+          setError(null);
           break;
 
         case 'received':
@@ -152,6 +162,7 @@ export default function Chat() {
     connect();
 
     return () => {
+      clearTimeout(reconnectTimer);
       wsRef.current?.close();
     };
   }, []);
