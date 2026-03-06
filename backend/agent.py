@@ -1,10 +1,131 @@
 import json
 from typing import Any
+from enum import Enum
 from fastapi import WebSocket
 from llm_client import LLMClient
 from memory import Memory
 from tool import Tool
 from skill import Skill
+
+
+class StreamState(Enum):
+    """流式输出状态"""
+    NORMAL = "normal"           # 普通内容
+    IN_THINK = "think"          # 在思考标签内
+    IN_REPORT = "report"        # 在汇报标签内
+
+
+class StreamBuffer:
+    """流式输出缓冲区，用于识别标签和发送分片消息"""
+
+    def __init__(self, send_callback):
+        self.buffer = ""           # 原始内容缓冲区
+        self.send_callback = send_callback
+        self.state = StreamState.NORMAL
+        self.pending_tag = ""      # 正在匹配的标签缓冲区
+        self.content_buffer = ""   # 当前状态的内容缓冲区
+
+    def _send_event(self, msg_type: str, content: str = ""):
+        """发送事件"""
+        if content:
+            self.send_callback(msg_type, {"content": content})
+        else:
+            self.send_callback(msg_type, {})
+
+    def _flush_content(self):
+        """刷新当前状态的内容缓冲区"""
+        if self.content_buffer:
+            if self.state == StreamState.IN_THINK:
+                self._send_event("think_chunk", self.content_buffer)
+            elif self.state == StreamState.IN_REPORT:
+                self._send_event("report_chunk", self.content_buffer)
+            else:
+                self._send_event("chunk", self.content_buffer)
+            self.content_buffer = ""
+
+    def _check_tag_in_buffer(self) -> tuple[bool, str, str]:
+        """检查缓冲区是否包含完整标签，返回 (是否找到, 标签名, 剩余内容)"""
+        # 检查开始标签
+        for tag in ["<思考>", "<汇报>"]:
+            if tag in self.buffer:
+                idx = self.buffer.index(tag)
+                before = self.buffer[:idx]
+                after = self.buffer[idx + len(tag):]
+                return True, tag, before, after
+
+        # 检查结束标签
+        for tag in ["</思考>", "</汇报>"]:
+            if tag in self.buffer:
+                idx = self.buffer.index(tag)
+                before = self.buffer[:idx]
+                after = self.buffer[idx + len(tag):]
+                return True, tag, before, after
+
+        return False, "", "", self.buffer
+
+    def process(self, text: str) -> str:
+        """
+        处理新流入的文本
+        返回完整的原始内容（用于存储到 memory）
+        """
+        self.buffer += text
+
+        while self.buffer:
+            found, tag, before, after = self._check_tag_in_buffer()
+
+            if not found:
+                # 缓冲区中没有完整标签，尝试发送已确认的内容
+                # 保留可能属于标签的最后 5 个字符
+                if len(self.buffer) > 5:
+                    safe_content = self.buffer[:-5]
+                    self.buffer = self.buffer[-5:]
+                    self.content_buffer += safe_content
+                    self._flush_content()
+                break
+
+            # 找到了完整标签
+            # 1. 先处理标签前的内容
+            self.content_buffer += before
+            self._flush_content()
+
+            # 2. 处理标签状态转换
+            if tag == "<思考>":
+                if self.state == StreamState.NORMAL:
+                    self.state = StreamState.IN_THINK
+                    self._send_event("think_start")
+                else:
+                    # 嵌套情况，当作普通内容
+                    self.content_buffer += tag
+            elif tag == "</思考>":
+                if self.state == StreamState.IN_THINK:
+                    self.state = StreamState.NORMAL
+                    self._send_event("think_end")
+                else:
+                    # 不在思考状态，当作普通内容
+                    self.content_buffer += tag
+            elif tag == "<汇报>":
+                if self.state == StreamState.NORMAL:
+                    self.state = StreamState.IN_REPORT
+                    self._send_event("report_start")
+                else:
+                    self.content_buffer += tag
+            elif tag == "</汇报>":
+                if self.state == StreamState.IN_REPORT:
+                    self.state = StreamState.NORMAL
+                    self._send_event("report_end")
+                else:
+                    self.content_buffer += tag
+
+            # 3. 更新缓冲区为标签后的内容
+            self.buffer = after
+
+        return text
+
+    def flush(self):
+        """刷新所有剩余内容"""
+        self.content_buffer += self.buffer
+        self.buffer = ""
+        self._flush_content()
 
 
 class Agent:
@@ -95,9 +216,15 @@ class Agent:
             # 每次调用获取独立的流结果对象，避免并发冲突
             stream_gen, stream_result = await self.llm.astream(messages, tools)
 
+            # 创建流式缓冲区处理 chunk
+            stream_buffer = StreamBuffer(self._send_ws_message)
+
             # 流式发送 chunk 消息
             async for chunk in stream_gen:
-                await self._send_ws_message("chunk", {"content": chunk})
+                stream_buffer.process(chunk)
+
+            # 刷新缓冲区
+            stream_buffer.flush()
 
             # 从独立结果对象获取完整响应和工具调用
             full_response = stream_result.full_response

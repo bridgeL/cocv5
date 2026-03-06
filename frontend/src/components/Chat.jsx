@@ -15,6 +15,12 @@ export default function Chat() {
   const messagesEndRef = useRef(null);
   const currentAssistantMsgRef = useRef(null);
 
+  // 当前流式消息的状态
+  const streamStateRef = useRef({
+    type: null, // 'think' | 'report' | 'normal'
+    messageId: null
+  });
+
   // 滚动到底部
   const scrollToBottom = useCallback(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
@@ -80,7 +86,7 @@ export default function Chat() {
           break;
 
         case 'chunk':
-          // 流式输出
+          // 普通流式输出
           setMessages(prev => {
             const lastMsg = prev[prev.length - 1];
             if (lastMsg && lastMsg.type === 'assistant' && !lastMsg.isComplete) {
@@ -90,6 +96,70 @@ export default function Chat() {
               ];
             }
             return [...prev, { type: 'assistant', content: data.content, isComplete: false }];
+          });
+          break;
+
+        case 'think_start':
+          // 思考开始
+          streamStateRef.current.type = 'think';
+          setMessages(prev => [...prev, { type: 'think', content: '', isComplete: false }]);
+          break;
+
+        case 'think_chunk':
+          // 思考内容
+          setMessages(prev => {
+            const lastMsg = prev[prev.length - 1];
+            if (lastMsg && lastMsg.type === 'think' && !lastMsg.isComplete) {
+              return [
+                ...prev.slice(0, -1),
+                { ...lastMsg, content: lastMsg.content + data.content }
+              ];
+            }
+            return [...prev, { type: 'think', content: data.content, isComplete: false }];
+          });
+          break;
+
+        case 'think_end':
+          // 思考结束
+          streamStateRef.current.type = null;
+          setMessages(prev => {
+            const lastMsg = prev[prev.length - 1];
+            if (lastMsg && lastMsg.type === 'think') {
+              return [...prev.slice(0, -1), { ...lastMsg, isComplete: true }];
+            }
+            return prev;
+          });
+          break;
+
+        case 'report_start':
+          // 汇报开始
+          streamStateRef.current.type = 'report';
+          setMessages(prev => [...prev, { type: 'report', content: '', isComplete: false }]);
+          break;
+
+        case 'report_chunk':
+          // 汇报内容
+          setMessages(prev => {
+            const lastMsg = prev[prev.length - 1];
+            if (lastMsg && lastMsg.type === 'report' && !lastMsg.isComplete) {
+              return [
+                ...prev.slice(0, -1),
+                { ...lastMsg, content: lastMsg.content + data.content }
+              ];
+            }
+            return [...prev, { type: 'report', content: data.content, isComplete: false }];
+          });
+          break;
+
+        case 'report_end':
+          // 汇报结束
+          streamStateRef.current.type = null;
+          setMessages(prev => {
+            const lastMsg = prev[prev.length - 1];
+            if (lastMsg && lastMsg.type === 'report') {
+              return [...prev.slice(0, -1), { ...lastMsg, isComplete: true }];
+            }
+            return prev;
           });
           break;
 
@@ -221,6 +291,26 @@ export default function Chat() {
             return (
               <div key={index} className="message assistant">
                 <div className="message-header">AI</div>
+                <div className="message-content">{msg.content}</div>
+              </div>
+            );
+          }
+
+          if (msg.type === 'think') {
+            return (
+              <div key={index} className="message think">
+                <div className="message-header">思考中</div>
+                <div className="message-content">
+                  {msg.content || <span className="thinking-dots-inline"><span></span><span></span><span></span></span>}
+                </div>
+              </div>
+            );
+          }
+
+          if (msg.type === 'report') {
+            return (
+              <div key={index} className="message report">
+                <div className="message-header">回答</div>
                 <div className="message-content">{msg.content}</div>
               </div>
             );
