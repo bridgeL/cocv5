@@ -1,3 +1,4 @@
+import asyncio
 import json
 from typing import Any
 from enum import Enum
@@ -24,23 +25,24 @@ class StreamBuffer:
         self.state = StreamState.NORMAL
         self.pending_tag = ""      # 正在匹配的标签缓冲区
         self.content_buffer = ""   # 当前状态的内容缓冲区
+        self.pending_events = []   # 待发送的异步事件队列
 
-    def _send_event(self, msg_type: str, content: str = ""):
+    async def _send_event(self, msg_type: str, content: str = ""):
         """发送事件"""
         if content:
-            self.send_callback(msg_type, {"content": content})
+            await self.send_callback(msg_type, {"content": content})
         else:
-            self.send_callback(msg_type, {})
+            await self.send_callback(msg_type, {})
 
-    def _flush_content(self):
+    async def _flush_content(self):
         """刷新当前状态的内容缓冲区"""
         if self.content_buffer:
             if self.state == StreamState.IN_THINK:
-                self._send_event("think_chunk", self.content_buffer)
+                await self._send_event("think_chunk", self.content_buffer)
             elif self.state == StreamState.IN_REPORT:
-                self._send_event("report_chunk", self.content_buffer)
+                await self._send_event("report_chunk", self.content_buffer)
             else:
-                self._send_event("chunk", self.content_buffer)
+                await self._send_event("chunk", self.content_buffer)
             self.content_buffer = ""
 
     def _check_tag_in_buffer(self) -> tuple[bool, str, str]:
@@ -63,7 +65,7 @@ class StreamBuffer:
 
         return False, "", "", self.buffer
 
-    def process(self, text: str) -> str:
+    async def process(self, text: str) -> str:
         """
         处理新流入的文本
         返回完整的原始内容（用于存储到 memory）
@@ -80,39 +82,39 @@ class StreamBuffer:
                     safe_content = self.buffer[:-5]
                     self.buffer = self.buffer[-5:]
                     self.content_buffer += safe_content
-                    self._flush_content()
+                    await self._flush_content()
                 break
 
             # 找到了完整标签
             # 1. 先处理标签前的内容
             self.content_buffer += before
-            self._flush_content()
+            await self._flush_content()
 
             # 2. 处理标签状态转换
             if tag == "<思考>":
                 if self.state == StreamState.NORMAL:
                     self.state = StreamState.IN_THINK
-                    self._send_event("think_start")
+                    await self._send_event("think_start")
                 else:
                     # 嵌套情况，当作普通内容
                     self.content_buffer += tag
             elif tag == "</思考>":
                 if self.state == StreamState.IN_THINK:
                     self.state = StreamState.NORMAL
-                    self._send_event("think_end")
+                    await self._send_event("think_end")
                 else:
                     # 不在思考状态，当作普通内容
                     self.content_buffer += tag
             elif tag == "<汇报>":
                 if self.state == StreamState.NORMAL:
                     self.state = StreamState.IN_REPORT
-                    self._send_event("report_start")
+                    await self._send_event("report_start")
                 else:
                     self.content_buffer += tag
             elif tag == "</汇报>":
                 if self.state == StreamState.IN_REPORT:
                     self.state = StreamState.NORMAL
-                    self._send_event("report_end")
+                    await self._send_event("report_end")
                 else:
                     self.content_buffer += tag
 
@@ -121,11 +123,11 @@ class StreamBuffer:
 
         return text
 
-    def flush(self):
+    async def flush(self):
         """刷新所有剩余内容"""
         self.content_buffer += self.buffer
         self.buffer = ""
-        self._flush_content()
+        await self._flush_content()
 
 
 class Agent:
@@ -221,10 +223,10 @@ class Agent:
 
             # 流式发送 chunk 消息
             async for chunk in stream_gen:
-                stream_buffer.process(chunk)
+                await stream_buffer.process(chunk)
 
             # 刷新缓冲区
-            stream_buffer.flush()
+            await stream_buffer.flush()
 
             # 从独立结果对象获取完整响应和工具调用
             full_response = stream_result.full_response
