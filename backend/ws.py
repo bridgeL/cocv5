@@ -49,17 +49,24 @@ class WebSocketConnection:
 
     async def send(self, msg_type: str, data: dict):
         """发送消息到客户端"""
-        message = {"type": msg_type, **data}
-        await self.websocket.send_text(json.dumps(message))
+        try:
+            message = {"type": msg_type, **data}
+            await self.websocket.send_text(json.dumps(message))
+        except WebSocketDisconnect:
+            # 客户端已断开，静默忽略
+            raise
+        except Exception:
+            # 其他发送错误（如连接已关闭），静默忽略
+            raise WebSocketDisconnect(code=1006)
 
     async def handle(self):
         """处理 WebSocket 连接生命周期"""
         print(f"[+] WebSocket 客户端连接: {self.client}, session_id: {self.session_id}")
 
-        # 发送 session_id 给客户端
-        await self.send("session_init", {"session_id": self.session_id})
-
         try:
+            # 发送 session_id 给客户端
+            await self.send("session_init", {"session_id": self.session_id})
+
             while True:
                 # 接收消息
                 text = await self.websocket.receive_text()
@@ -79,7 +86,6 @@ class WebSocketConnection:
             print(f"[-] 客户端断开: {self.client} (session: {self.session_id})")
         except Exception as e:
             print(f"[!] 与 {self.client} 通信时出错: {e}")
-            await self.send("error", {"error": str(e)})
 
     async def _handle_message(self, msg_type: str, data: dict):
         """处理单条消息"""
@@ -117,6 +123,7 @@ class WebSocketConnection:
 
 async def handle_websocket(websocket: WebSocket):
     """WebSocket 连接入口函数"""
+    # 允许前端开发服务器的 origin 直连
     await websocket.accept()
     conn = WebSocketConnection(websocket)
     await conn.handle()

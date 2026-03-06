@@ -43,7 +43,14 @@ async def websocket_endpoint(websocket: WebSocket):
 async def main():
     """主函数 - 启动 HTTP + WebSocket 服务 (统一端口 8080)"""
     print("🚀 服务器启动中...")
-    config = uvicorn.Config(app, host="0.0.0.0", port=8080, log_level="info")
+    config = uvicorn.Config(
+        app,
+        host="0.0.0.0",
+        port=8080,
+        log_level="info",
+        reload=True,
+        reload_dirs=["."],
+    )
     server = uvicorn.Server(config)
     await server.serve()
 
