@@ -9,6 +9,8 @@
 ### 启动后端程序
 
 ```bash
+cd backend
+
 # 激活虚拟环境（Windows）
 .venv\Scripts\activate
 
@@ -19,8 +21,11 @@ source .venv/bin/activate
 python app.py
 ```
 
-## 访问服务
+### 启动前端程序
 
-- **Web 页面**: http://localhost:8080
-- **WebSocket**: ws://localhost:8777
+```bash
+cd frontend
 
+# 启动服务
+npm run dev
+```
