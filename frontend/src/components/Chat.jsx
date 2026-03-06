@@ -287,15 +287,6 @@ export default function Chat() {
             );
           }
 
-          if (msg.type === 'assistant') {
-            return (
-              <div key={index} className="message assistant">
-                <div className="message-header">AI</div>
-                <div className="message-content">{msg.content}</div>
-              </div>
-            );
-          }
-
           if (msg.type === 'think') {
             return (
               <div key={index} className="message think">
