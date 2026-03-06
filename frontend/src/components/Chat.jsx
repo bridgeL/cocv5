@@ -19,6 +19,9 @@ export default function Chat() {
   const wsRef = useRef(null);
   const messagesEndRef = useRef(null);
   const currentAssistantMsgRef = useRef(null);
+  const messagesContainerRef = useRef(null);
+  const isAtBottomRef = useRef(true);
+  const lastScrollTopRef = useRef(0);
 
   // 当前流式消息的状态
   const streamStateRef = useRef({
@@ -73,11 +76,47 @@ export default function Chat() {
     setCollapsedItems(new Set());
   }, []);
 
-  // 滚动到底部
-  const scrollToBottom = useCallback(() => {
-    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+  // 检查是否在底部（距离底部 100px 以内认为是在底部）
+  const checkIsAtBottom = useCallback(() => {
+    const container = messagesContainerRef.current;
+    if (!container) return true;
+    const threshold = 100;
+    return container.scrollHeight - container.scrollTop - container.clientHeight < threshold;
   }, []);
 
+  // 滚动到底部
+  const scrollToBottom = useCallback(() => {
+    if (isAtBottomRef.current) {
+      messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+    }
+  }, []);
+
+  // 监听滚动事件，根据滚动方向和位置判断是否进入智能滚动
+  useEffect(() => {
+    const container = messagesContainerRef.current;
+    if (!container) return;
+
+    const handleScroll = () => {
+      const currentScrollTop = container.scrollTop;
+      const scrollDirection = currentScrollTop > lastScrollTopRef.current ? 'down' : 'up';
+      lastScrollTopRef.current = currentScrollTop;
+
+      const atBottom = checkIsAtBottom();
+
+      if (scrollDirection === 'up') {
+        // 向上滚动：退出智能滚动
+        isAtBottomRef.current = false;
+      } else {
+        // 向下滚动：根据位置判断是否进入智能滚动
+        isAtBottomRef.current = atBottom;
+      }
+    };
+
+    container.addEventListener('scroll', handleScroll);
+    return () => container.removeEventListener('scroll', handleScroll);
+  }, [checkIsAtBottom]);
+
+  // 消息更新时，如果在底部则自动滚动
   useEffect(() => {
     scrollToBottom();
   }, [messages, scrollToBottom]);
@@ -351,7 +390,7 @@ export default function Chat() {
       </header>
 
       {/* 消息区域 */}
-      <div className="messages">
+      <div className="messages" ref={messagesContainerRef}>
         {messages.map((msg, index) => {
           if (msg.type === 'user') {
             return (
