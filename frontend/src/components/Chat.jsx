@@ -38,15 +38,28 @@ export default function Chat() {
   const toggleItemCollapse = useCallback((index) => {
     setCollapseMode('custom');
     setCollapsedItems(prev => {
-      const newSet = new Set(prev);
-      if (newSet.has(index)) {
+      // 根据当前模式初始化 collapsedItems
+      let newSet;
+      if (collapseMode === 'all-collapsed') {
+        // 从折叠模式进入自定义：所有都折叠，然后展开点击的
+        newSet = new Set(messages.map((_, i) => i));
         newSet.delete(index);
-      } else {
+      } else if (collapseMode === 'all-expanded') {
+        // 从展开模式进入自定义：所有都展开，然后折叠点击的
+        newSet = new Set();
         newSet.add(index);
+      } else {
+        // 已经在自定义模式，正常切换
+        newSet = new Set(prev);
+        if (newSet.has(index)) {
+          newSet.delete(index);
+        } else {
+          newSet.add(index);
+        }
       }
       return newSet;
     });
-  }, []);
+  }, [collapseMode, messages]);
 
   // 切换全局折叠模式
   const toggleCollapseMode = useCallback(() => {
