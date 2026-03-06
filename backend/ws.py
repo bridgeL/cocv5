@@ -12,6 +12,7 @@ from agent import Agent
 from tools.current_time import CurrentTimeTool
 from tools.weather import WeatherTool
 from skills.weather_assistant import WeatherAssistantSkill
+from skills.react_reasoning import ReActSkill
 
 
 class WebSocketConnection:
@@ -35,6 +36,7 @@ class WebSocketConnection:
         ]
         skills = [
             WeatherAssistantSkill(),
+            ReActSkill(),
         ]
         return Agent(
             tools=tools,
