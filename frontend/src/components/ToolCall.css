@@ -1,8 +1,14 @@
 /* 工具调用气泡 - 外层使用 message.tool 结构 */
 .message.tool {
   align-self: flex-start;
-  cursor: pointer;
+}
+
+.message.tool .message-header {
   user-select: none;
+}
+
+.message.tool .tool-call-box {
+  user-select: text;
 }
 
 .message.tool .message-header {
@@ -13,7 +19,7 @@
 .tool-call-box {
   background: linear-gradient(135deg, #f5f7fa 0%, #e4e8ec 100%);
   border: 1px solid #d0d5dd;
-  border-radius: 12px;
+  border-radius: 12px 12px 12px 4px;
   padding: 14px 16px;
   font-size: 13px;
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);

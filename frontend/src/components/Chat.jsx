@@ -355,10 +355,13 @@ export default function Chat() {
               <div
                 key={index}
                 className={`message think ${collapsed ? 'collapsed' : ''}`}
-                onClick={() => toggleItemCollapse(index)}
-                title={collapsed ? '点击展开' : '点击折叠'}
               >
-                <div className="message-header">
+                <div
+                  className="message-header"
+                  onClick={() => toggleItemCollapse(index)}
+                  title={collapsed ? '点击展开' : '点击折叠'}
+                  style={{ cursor: 'pointer' }}
+                >
                   思考 {collapsed ? '▶' : '▼'}
                 </div>
                 {!collapsed && (
