@@ -1,4 +1,3 @@
-import asyncio
 from fastapi import FastAPI, WebSocket
 from fastapi.responses import HTMLResponse
 from fastapi.middleware.cors import CORSMiddleware
@@ -85,45 +84,38 @@ async def websocket_endpoint(websocket: WebSocket):
     memory = Memory(session_id=conn.session_id, db_path="memory.db")
     agent = create_agent(websocket, memory)
 
-    # 定义消息处理器
-    async def handle_message(msg_type: str, data: dict):
-        if msg_type == "ping":
-            await conn.send("pong", {})
-        elif msg_type == "agent_chat":
-            user_message = data.get("message", "")
-            print(
-                f"[🤖] 收到来自 {conn.client} 的Agent提问 (session: {conn.session_id}): {user_message}"
-            )
-            try:
-                await agent.chat(user_message)
-                print(f"[✓] Agent 回复完成: {conn.client} (session: {conn.session_id})")
-            except Exception as e:
-                error_msg = f"Agent 调用失败: {str(e)}"
-                print(f"[!] {error_msg}")
-                await conn.send("error", {"error": error_msg})
-        else:
-            await conn.send("unknown", {"received": data})
+    # 注册 agent_chat 处理器
+    async def handle_agent_chat(data: dict):
+        user_message = data.get("message", "")
+        print(
+            f"[🤖] 收到来自 {conn.client} 的Agent提问 (session: {conn.session_id}): {user_message}"
+        )
+        try:
+            await agent.chat(user_message)
+            print(f"[✓] Agent 回复完成: {conn.client} (session: {conn.session_id})")
+        except Exception as e:
+            error_msg = f"Agent 调用失败: {str(e)}"
+            print(f"[!] {error_msg}")
+            await conn.send("error", {"error": error_msg})
 
-    conn.set_message_handler(handle_message)
+    conn.on("agent_chat", handle_agent_chat)
     await conn.handle()
 
 
-async def main():
+def main():
     """主函数 - 启动 HTTP + WebSocket 服务 (统一端口 8080)"""
     print("🚀 服务器启动中...")
-    config = uvicorn.Config(
-        app,
+    uvicorn.run(
+        "app:app",
         host="0.0.0.0",
         port=8080,
         log_level="info",
         reload=True,
     )
-    server = uvicorn.Server(config)
-    await server.serve()
 
 
 if __name__ == "__main__":
     try:
-        asyncio.run(main())
+        main()
     except KeyboardInterrupt:
         print("\n🛑 服务器已停止")
