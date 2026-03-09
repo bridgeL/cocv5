@@ -302,22 +302,24 @@ class Agent:
                 tool_calls=tool_calls,
             )
 
-            # 执行工具并添加结果到内存
-            tool_results = []
-            for tc in tool_calls:
+            # 执行工具并添加结果到内存（并行执行）
+            async def execute_single_tool(tc):
+                """执行单个工具调用"""
                 tool_call_id = tc["id"]
                 func_name = tc["function"]["name"]
                 func_args = tc["function"]["arguments"]
 
                 result = await self._execute_tool(func_name, func_args)
                 self.memory.add_tool_result(tool_call_id, result)
-                tool_results.append(
-                    {
-                        "id": tool_call_id,
-                        "name": func_name,
-                        "result": result,
-                    }
-                )
+                return {
+                    "id": tool_call_id,
+                    "name": func_name,
+                    "result": result,
+                }
+
+            # 创建所有工具执行任务并并行执行
+            tool_tasks = [execute_single_tool(tc) for tc in tool_calls]
+            tool_results = await asyncio.gather(*tool_tasks)
 
             # 发送 tool_after 消息
             await self._send_ws_message("tool_after", {"results": tool_results})
