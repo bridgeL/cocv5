@@ -13,6 +13,7 @@ from tools.roll_dice import RollDiceTool
 from tools.skill_check import SkillCheckTool
 from skills.weather_assistant import WeatherAssistantSkill
 from skills.react_reasoning import ReActSkill
+from skills.coc_character_generator import CoCCharacterGeneratorSkill
 
 
 def create_agent(websocket: WebSocket, memory: Memory) -> Agent:
@@ -34,6 +35,7 @@ def create_agent(websocket: WebSocket, memory: Memory) -> Agent:
     skills = [
         WeatherAssistantSkill(),
         ReActSkill(),
+        CoCCharacterGeneratorSkill(),
     ]
     return Agent(
         tools=tools,
