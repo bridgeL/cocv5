@@ -18,25 +18,13 @@ class SkillLoaderSkill(Skill):
 ### 步骤 2：检查可用技能
 查看当前 Agent 已加载的所有技能列表，判断是否有与用户需求相关的技能。
 
-当前可用技能包括：
-- 天气助手：帮助用户获取实时天气
-- ReAct 推理行动：遵循 ReAct 范式进行思考和行动
-- CoC 7th Edition Character Data Architect：克苏鲁的呼唤7版角色卡生成
-- 技能自动加载器：本技能自身
-
 ### 步骤 3：加载相关技能（关键步骤）
 如果发现与用户请求相关的技能，**必须立即调用 skill_manager 工具加载该技能**。
 
 调用方式：
 ```
-skill_manager(mode="install", skill_name="技能名称")
+skill_manager(skill_name="技能名称")
 ```
-
-加载原则：
-- 用户询问天气、时间相关 → 加载「天气助手」
-- 用户提及角色卡、调查员、CoC、克苏鲁的呼唤 → 加载「CoC 7th Edition Character Data Architect」
-- 用户要求复杂推理、多步骤任务 → 加载「ReAct 推理行动」
-- 不确定时，可以加载多个可能相关的技能
 
 ### 步骤 4：执行任务
 在确认相关技能已加载后，根据加载的技能能力和用户请求，继续思考和解决问题。
@@ -58,13 +46,13 @@ skill_manager(mode="install", skill_name="技能名称")
 
 **正确执行流程**：
 1. 识别到关键词"克苏鲁的呼唤"、"调查员"
-2. 立即调用：skill_manager(mode="install", skill_name="CoC 7th Edition Character Data Architect")
+2. 立即调用：skill_manager
 3. 确认技能已加载后，根据角色卡生成技能的能力继续帮助用户创建角色
 
 **用户**："北京今天天气怎么样？"
 
 **正确执行流程**：
 1. 识别到天气相关请求
-2. 立即调用：skill_manager(mode="install", skill_name="天气助手")
+2. 立即调用：skill_manager
 3. 使用天气助手的能力回答用户问题
 """

@@ -28,18 +28,21 @@ def create_agent(websocket: WebSocket, memory: Memory) -> Agent:
     Returns:
         配置好的 Agent 实例
     """
-    tools = [
-        CurrentTimeTool(),
-        WeatherTool(),
-        RollDiceTool(),
-        SkillCheckTool(),
-        SkillManagerTool(),
-    ]
+    # 先创建 skills 列表
     skills = [
         WeatherAssistantSkill(),
         ReActSkill(),
         CoCCharacterGeneratorSkill(),
         SkillLoaderSkill(),
+    ]
+
+    # 创建 tools，skill_manager 需要传入 skills
+    tools = [
+        CurrentTimeTool(),
+        WeatherTool(),
+        RollDiceTool(),
+        SkillCheckTool(),
+        SkillManagerTool(skills),
     ]
     agent = Agent(
         tools=tools,
