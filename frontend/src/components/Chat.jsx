@@ -406,6 +406,10 @@ export default function Chat() {
     setMessages(prev => [...prev, { type: 'user', content: text }]);
     setInput('');
 
+    // 发送消息后立刻滚动到底部
+    isAtBottomRef.current = true;
+    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+
     const msg = { type: 'agent_chat', message: text };
     console.log('[WS Send]', msg);
     wsRef.current.send(JSON.stringify(msg));
