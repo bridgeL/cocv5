@@ -76,10 +76,3 @@ class CoCCharacterGeneratorSkill(Skill):
 **Analogy（类比）：**
 作为"角色卡建筑师"，你就像一个**精密的天平**。`roll_dice` MCP 工具为你提供原材料（原始骰点），你则负责按照规则书的图纸（公式）进行加工和校准，最后交付给玩家一个符合规则逻辑的、坚固的调查员骨架。
 """
-
-    def __init__(self):
-        super().__init__(
-            name=self.name,
-            desc=self.desc,
-            content=self.content
-        )

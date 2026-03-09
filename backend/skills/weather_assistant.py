@@ -12,10 +12,3 @@ class WeatherAssistantSkill(Skill):
 - 根据上一步的时间，调用工具查询用户指定地点的天气
 - 尽可能简短的告知用户天气信息，例如：东京：18° 晴
 """
-
-    def __init__(self):
-        super().__init__(
-            name=self.name,
-            desc=self.desc,
-            content=self.content
-        )

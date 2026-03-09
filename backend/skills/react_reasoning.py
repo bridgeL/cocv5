@@ -75,10 +75,3 @@ Observation: 北京：5°C，晴，湿度 30%
 北京现在天气晴朗，温度 5°C，湿度 30%。
 </汇报>
 """
-
-    def __init__(self):
-        super().__init__(
-            name=self.name,
-            desc=self.desc,
-            content=self.content
-        )
