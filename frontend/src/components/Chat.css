@@ -178,6 +178,51 @@
   gap: 6px;
 }
 
+/* 占位思考气泡样式 */
+.message.think.placeholder .message-header {
+  color: #4aa8ff;
+}
+
+.message.think.placeholder .message-content {
+  background: linear-gradient(135deg, #e8f4fd 0%, #f0f8ff 100%);
+  border: 1px solid #4aa8ff;
+  animation: pulse-bg 2s ease-in-out infinite;
+}
+
+.thinking-label {
+  display: inline-flex;
+  align-items: center;
+  padding: 1px 6px;
+  background: linear-gradient(135deg, #4aa8ff 0%, #2196f3 100%);
+  color: white;
+  font-size: 10px;
+  font-weight: 500;
+  border-radius: 8px;
+  margin-left: 4px;
+  animation: thinking-pulse 1.5s ease-in-out infinite;
+}
+
+.thinking-title {
+  color: #4aa8ff;
+  font-weight: 500;
+}
+
+.thinking-dots {
+  display: inline-block;
+  margin-left: 2px;
+  animation: thinking-pulse 1.5s ease-in-out infinite;
+}
+
+@keyframes pulse-bg {
+  0%, 100% { opacity: 0.8; }
+  50% { opacity: 1; }
+}
+
+@keyframes thinking-pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.5; }
+}
+
 /* 汇报气泡 */
 .message.report {
   align-self: flex-start;

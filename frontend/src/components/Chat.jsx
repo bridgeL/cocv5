@@ -10,6 +10,8 @@ export default function Chat() {
   const [sessionId, setSessionId] = useState(null);
   const [currentToolCall, setCurrentToolCall] = useState(null);
   const [error, setError] = useState(null);
+  // 占位思考气泡的ID
+  const placeholderThinkRef = useRef(null);
 
   // 气泡折叠状态：'all-collapsed' | 'custom' | 'all-expanded'
   const [collapseMode, setCollapseMode] = useState('all-expanded');
@@ -175,12 +177,28 @@ export default function Chat() {
 
         case 'received':
           setIsProcessing(true);
+          // 添加占位思考气泡（如果没有真正的思考气泡，也没有正在执行的工具调用）
+          setMessages(prev => {
+            const hasThink = prev.some(m => m.type === 'think' && !m.isComplete);
+            const hasExecutingTool = prev.some(m => m.type === 'tool' && m.status === 'executing');
+            if (!hasThink && !hasExecutingTool) {
+              const placeholderId = `think-${Date.now()}`;
+              placeholderThinkRef.current = placeholderId;
+              return [...prev, { type: 'think', content: '', isComplete: false, isPlaceholder: true, id: placeholderId }];
+            }
+            return prev;
+          });
           break;
 
         case 'chunk':
           // 普通流式输出
           setMessages(prev => {
             const lastMsg = prev[prev.length - 1];
+            // 如果有占位思考气泡，替换成普通助手消息
+            if (lastMsg && lastMsg.type === 'think' && lastMsg.isPlaceholder) {
+              placeholderThinkRef.current = null;
+              return [...prev.slice(0, -1), { type: 'assistant', content: data.content, isComplete: false }];
+            }
             if (lastMsg && lastMsg.type === 'assistant' && !lastMsg.isComplete) {
               return [
                 ...prev.slice(0, -1),
@@ -194,7 +212,15 @@ export default function Chat() {
         case 'think_start':
           // 思考开始
           streamStateRef.current.type = 'think';
-          setMessages(prev => [...prev, { type: 'think', content: '', isComplete: false }]);
+          setMessages(prev => {
+            // 如果有占位思考气泡，替换它
+            const lastMsg = prev[prev.length - 1];
+            if (lastMsg && lastMsg.type === 'think' && lastMsg.isPlaceholder) {
+              placeholderThinkRef.current = null;
+              return [...prev.slice(0, -1), { type: 'think', content: '', isComplete: false }];
+            }
+            return [...prev, { type: 'think', content: '', isComplete: false }];
+          });
           break;
 
         case 'think_chunk':
@@ -226,7 +252,15 @@ export default function Chat() {
         case 'report_start':
           // 汇报开始
           streamStateRef.current.type = 'report';
-          setMessages(prev => [...prev, { type: 'report', content: '', isComplete: false }]);
+          setMessages(prev => {
+            // 如果有占位思考气泡，替换它
+            const lastMsg = prev[prev.length - 1];
+            if (lastMsg && lastMsg.type === 'think' && lastMsg.isPlaceholder) {
+              placeholderThinkRef.current = null;
+              return [...prev.slice(0, -1), { type: 'report', content: '', isComplete: false }];
+            }
+            return [...prev, { type: 'report', content: '', isComplete: false }];
+          });
           break;
 
         case 'report_chunk':
@@ -265,15 +299,21 @@ export default function Chat() {
                 args: tc.arguments,
                 status: 'executing'
               });
-              setMessages(prev => [
-                ...prev,
-                {
+              setMessages(prev => {
+                const lastMsg = prev[prev.length - 1];
+                const newTool = {
                   type: 'tool',
                   name: tc.name,
                   args: tc.arguments,
                   status: 'executing'
+                };
+                // 如果有占位思考气泡，移除它（工具调用气泡已有思考中标签）
+                if (lastMsg && lastMsg.type === 'think' && lastMsg.isPlaceholder) {
+                  placeholderThinkRef.current = null;
+                  return [...prev.slice(0, -1), newTool];
                 }
-              ]);
+                return [...prev, newTool];
+              });
             });
           }
           break;
@@ -303,10 +343,15 @@ export default function Chat() {
 
         case 'complete':
           setIsProcessing(false);
+          placeholderThinkRef.current = null;
           setMessages(prev => {
             const lastMsg = prev[prev.length - 1];
             if (lastMsg && lastMsg.type === 'assistant') {
               return [...prev.slice(0, -1), { ...lastMsg, isComplete: true }];
+            }
+            // 如果最后一个是占位思考气泡，移除它
+            if (lastMsg && lastMsg.type === 'think' && lastMsg.isPlaceholder) {
+              return prev.slice(0, -1);
             }
             return prev;
           });
@@ -315,6 +360,7 @@ export default function Chat() {
 
         case 'error':
           setIsProcessing(false);
+          placeholderThinkRef.current = null;
           setError(data.error || '未知错误');
           setCurrentToolCall(null);
           break;
@@ -403,10 +449,11 @@ export default function Chat() {
 
           if (msg.type === 'think') {
             const collapsed = isCollapsed(index, 'think');
+            const isPlaceholder = msg.isPlaceholder;
             return (
               <div
                 key={index}
-                className={`message think ${collapsed ? 'collapsed' : ''}`}
+                className={`message think ${collapsed ? 'collapsed' : ''} ${isPlaceholder ? 'placeholder' : ''}`}
               >
                 <div
                   className="message-header"
@@ -414,11 +461,20 @@ export default function Chat() {
                   title={collapsed ? '点击展开' : '点击折叠'}
                   style={{ cursor: 'pointer' }}
                 >
-                  思考 {collapsed ? '▶' : '▼'}
+                  {isPlaceholder ? (
+                    <span className="thinking-title">思考中<span className="thinking-dots">...</span></span>
+                  ) : (
+                    "思考"
+                  )}
+                  {collapsed ? ' ▶' : ' ▼'}
                 </div>
                 {!collapsed && (
                   <div className="message-content">
-                    {msg.content || <span className="thinking-dots-inline"><span></span><span></span><span></span></span>}
+                    {isPlaceholder ? (
+                      <span className="thinking-dots-inline"><span></span><span></span><span></span></span>
+                    ) : (
+                      msg.content
+                    )}
                   </div>
                 )}
               </div>
@@ -451,17 +507,18 @@ export default function Chat() {
           return null;
         })}
 
-        {isProcessing && (
-          <div className="thinking">
-            <div className="thinking-dots">
-              <span></span>
-              <span></span>
-              <span></span>
+        {isProcessing &&
+          !messages.some(m => m.type === 'think' && !m.isComplete) &&
+          !messages.some(m => m.type === 'tool' && m.status === 'executing') && (
+          <div className="message think placeholder">
+            <div className="message-header">
+              <span className="thinking-title">思考中<span className="thinking-dots">...</span></span>
             </div>
-            <span>AI 正在思考...</span>
+            <div className="message-content">
+              <span className="thinking-dots-inline"><span></span><span></span><span></span></span>
+            </div>
           </div>
         )}
-
         <div ref={messagesEndRef} />
       </div>
 

@@ -37,7 +37,9 @@ export default function ToolCall({ name, args, result, status, collapsed, onTogg
         title={collapsed ? '点击展开' : '点击折叠'}
         style={{ cursor: 'pointer' }}
       >
-        调用工具：{name} {collapsed ? '▶' : '▼'}
+        调用工具：{name}
+        {isExecuting && <span className="tool-call-thinking">思考中...</span>}
+        {collapsed ? ' ▶' : ' ▼'}
       </div>
 
       {!collapsed && (
