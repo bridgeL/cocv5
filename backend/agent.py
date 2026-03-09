@@ -122,33 +122,39 @@ class StreamBuffer:
 
             # 2. 处理标签状态转换
             if tag == "<思考>":
+                # 记录切换前的状态
+                was_normal = self.state == StreamState.NORMAL
                 # 切换到 think 状态前，先关闭当前状态
                 await self._close_current_state()
                 self.state = StreamState.IN_THINK
                 await self._send_event("think_start")
-                # 去掉标签后开头的换行符，避免气泡出现空行
-                after = after.lstrip("\n")
+                # 只有从 NORMAL 状态切换时才去除换行符
+                if was_normal:
+                    after = after.lstrip("\n")
             elif tag == "</思考>":
                 if self.state == StreamState.IN_THINK:
                     self.state = StreamState.NORMAL
                     await self._send_event("think_end")
-                    # 去掉标签后开头的换行符，避免触发report chunk
+                    # 关闭状态时去除换行符
                     after = after.lstrip("\n")
                 else:
                     # 不在思考状态，当作普通内容
                     self.content_buffer += tag
             elif tag == "<汇报>":
+                # 记录切换前的状态
+                was_normal = self.state == StreamState.NORMAL
                 # 切换到 report 状态前，先关闭当前状态
                 await self._close_current_state()
                 self.state = StreamState.IN_REPORT
                 await self._send_event("report_start")
-                # 去掉标签后开头的换行符，避免气泡出现空行
-                after = after.lstrip("\n")
+                # 只有从 NORMAL 状态切换时才去除换行符
+                if was_normal:
+                    after = after.lstrip("\n")
             elif tag == "</汇报>":
                 if self.state == StreamState.IN_REPORT:
                     self.state = StreamState.NORMAL
                     await self._send_event("report_end")
-                    # 去掉标签后开头的换行符，避免触发不必要的report chunk
+                    # 关闭状态时去除换行符
                     after = after.lstrip("\n")
                 else:
                     self.content_buffer += tag
