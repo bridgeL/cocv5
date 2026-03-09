@@ -15,6 +15,7 @@ from tools.skill_manager import SkillManagerTool
 from skills.weather_assistant import WeatherAssistantSkill
 from skills.react_reasoning import ReActSkill
 from skills.coc_character_generator import CoCCharacterGeneratorSkill
+from skills.skill_loader import SkillLoaderSkill
 
 
 def create_agent(websocket: WebSocket, memory: Memory) -> Agent:
@@ -41,6 +42,7 @@ def create_agent(websocket: WebSocket, memory: Memory) -> Agent:
         WeatherAssistantSkill(),
         ReActSkill(),
         CoCCharacterGeneratorSkill(),
+        SkillLoaderSkill(),
     ]
     agent = Agent(
         tools=tools,
