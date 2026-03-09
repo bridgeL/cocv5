@@ -294,7 +294,7 @@ export default function Chat() {
           if (data.tool_calls) {
             data.tool_calls.forEach(tc => {
               setCurrentToolCall({
-                id: `tool-${tc.name}-${Date.now()}`,
+                id: tc.id,
                 name: tc.name,
                 args: tc.arguments,
                 status: 'executing'
@@ -303,6 +303,7 @@ export default function Chat() {
                 const lastMsg = prev[prev.length - 1];
                 const newTool = {
                   type: 'tool',
+                  id: tc.id,  // 保存 tool call id 用于后续匹配
                   name: tc.name,
                   args: tc.arguments,
                   status: 'executing'
@@ -324,16 +325,18 @@ export default function Chat() {
             data.results.forEach(result => {
               setCurrentToolCall(null);
               setMessages(prev => {
-                const lastMsg = prev[prev.length - 1];
-                if (lastMsg && lastMsg.type === 'tool' && lastMsg.name === result.name && lastMsg.status === 'executing') {
-                  return [
-                    ...prev.slice(0, -1),
-                    {
-                      ...lastMsg,
-                      result: result.result,
-                      status: 'success'
-                    }
-                  ];
+                // 根据 id 找到对应的 tool 消息
+                const targetIndex = prev.findIndex(
+                  m => m.type === 'tool' && m.id === result.id && m.status === 'executing'
+                );
+                if (targetIndex !== -1) {
+                  const updatedMessages = [...prev];
+                  updatedMessages[targetIndex] = {
+                    ...updatedMessages[targetIndex],
+                    result: result.result,
+                    status: 'success'
+                  };
+                  return updatedMessages;
                 }
                 return prev;
               });

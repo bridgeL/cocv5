@@ -327,7 +327,7 @@ class Agent:
             messages.extend(self.memory.get_messages())
 
         # 发送 complete 消息，表示本轮 chat 结束
-        await self._send_ws_message("complete")
+        await self._send_ws_message("complete", {})
 
     async def _execute_tool(self, func_name: str, func_args: str) -> dict:
         """执行工具并返回dict结果，从本地 tools 列表中查找"""
