@@ -530,10 +530,10 @@ export default function Chat() {
             onChange={(e) => setInput(e.target.value)}
             onKeyPress={handleKeyPress}
             placeholder="输入消息..."
-            disabled={!isConnected || isProcessing}
+            disabled={!isConnected}
             autoComplete="off"
           />
-          <button onClick={sendMessage} disabled={!isConnected || isProcessing}>
+          <button onClick={sendMessage} disabled={!isConnected}>
             发送
           </button>
         </div>
