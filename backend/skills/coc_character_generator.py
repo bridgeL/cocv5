@@ -6,6 +6,7 @@ class CoCCharacterGeneratorSkill(Skill):
 
     name = "CoC 7th Edition Character Data Architect"
     desc = "严格按照《克苏鲁的呼唤》第七版规则，利用掷骰工具生成准确的角色基础属性与派生属性"
+    installed = True
     content = """
 根据《守秘人规则书》第七版规则和您提供的 MCP 掷骰工具，我为您设计了一套"克苏鲁的呼唤角色卡生成技能（Skill）"。这套指令将引导 AI 系统化地完成属性生成、派生数值计算以及年龄调整。
 
