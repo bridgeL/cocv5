@@ -6,6 +6,7 @@ class ReActSkill(Skill):
 
     name = "ReAct 推理行动"
     desc = "遵循 ReAct 范式进行思考和行动"
+    preinstalled = True
     content = """
 ## ReAct 范式 (Reasoning + Acting)
 
