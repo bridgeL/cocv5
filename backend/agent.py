@@ -34,15 +34,33 @@ class StreamBuffer:
         else:
             await self.send_callback(msg_type, {})
 
+    async def _ensure_report_state(self):
+        """确保当前处于 report 状态，如果不是则先关闭当前状态并切换到 report"""
+        if self.state == StreamState.IN_THINK:
+            self.state = StreamState.NORMAL
+            await self._send_event("think_end")
+        if self.state == StreamState.NORMAL:
+            self.state = StreamState.IN_REPORT
+            await self._send_event("report_start")
+
+    async def _close_current_state(self):
+        """关闭当前状态（用于状态切换前）"""
+        if self.state == StreamState.IN_THINK:
+            self.state = StreamState.NORMAL
+            await self._send_event("think_end")
+        elif self.state == StreamState.IN_REPORT:
+            self.state = StreamState.NORMAL
+            await self._send_event("report_end")
+
     async def _flush_content(self):
         """刷新当前状态的内容缓冲区"""
         if self.content_buffer:
             if self.state == StreamState.IN_THINK:
                 await self._send_event("think_chunk", self.content_buffer)
-            elif self.state == StreamState.IN_REPORT:
-                await self._send_event("report_chunk", self.content_buffer)
             else:
-                await self._send_event("chunk", self.content_buffer)
+                # 其他情况都转为 report 状态发送
+                await self._ensure_report_state()
+                await self._send_event("report_chunk", self.content_buffer)
             self.content_buffer = ""
 
     def _check_tag_in_buffer(self) -> tuple[bool, str, str]:
@@ -92,33 +110,34 @@ class StreamBuffer:
 
             # 2. 处理标签状态转换
             if tag == "<思考>":
-                if self.state == StreamState.NORMAL:
-                    self.state = StreamState.IN_THINK
-                    await self._send_event("think_start")
-                    # 去掉标签后开头的换行符，避免气泡出现空行
-                    after = after.lstrip("\n")
-                else:
-                    # 嵌套情况，当作普通内容
-                    self.content_buffer += tag
+                # 切换到 think 状态前，先关闭当前状态
+                await self._close_current_state()
+                self.state = StreamState.IN_THINK
+                await self._send_event("think_start")
+                # 去掉标签后开头的换行符，避免气泡出现空行
+                after = after.lstrip("\n")
             elif tag == "</思考>":
                 if self.state == StreamState.IN_THINK:
                     self.state = StreamState.NORMAL
                     await self._send_event("think_end")
+                    # 去掉标签后开头的换行符，避免触发report chunk
+                    after = after.lstrip("\n")
                 else:
                     # 不在思考状态，当作普通内容
                     self.content_buffer += tag
             elif tag == "<汇报>":
-                if self.state == StreamState.NORMAL:
-                    self.state = StreamState.IN_REPORT
-                    await self._send_event("report_start")
-                    # 去掉标签后开头的换行符，避免气泡出现空行
-                    after = after.lstrip("\n")
-                else:
-                    self.content_buffer += tag
+                # 切换到 report 状态前，先关闭当前状态
+                await self._close_current_state()
+                self.state = StreamState.IN_REPORT
+                await self._send_event("report_start")
+                # 去掉标签后开头的换行符，避免气泡出现空行
+                after = after.lstrip("\n")
             elif tag == "</汇报>":
                 if self.state == StreamState.IN_REPORT:
                     self.state = StreamState.NORMAL
                     await self._send_event("report_end")
+                    # 去掉标签后开头的换行符，避免触发不必要的report chunk
+                    after = after.lstrip("\n")
                 else:
                     self.content_buffer += tag
 
@@ -128,10 +147,12 @@ class StreamBuffer:
         return text
 
     async def flush(self):
-        """刷新所有剩余内容"""
+        """刷新所有剩余内容并关闭当前状态"""
         self.content_buffer += self.buffer
         self.buffer = ""
         await self._flush_content()
+        # 关闭当前状态
+        await self._close_current_state()
 
 
 class Agent:
