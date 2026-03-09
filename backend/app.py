@@ -11,6 +11,7 @@ from tools.current_time import CurrentTimeTool
 from tools.weather import WeatherTool
 from tools.roll_dice import RollDiceTool
 from tools.skill_check import SkillCheckTool
+from tools.skill_manager import SkillManagerTool
 from skills.weather_assistant import WeatherAssistantSkill
 from skills.react_reasoning import ReActSkill
 from skills.coc_character_generator import CoCCharacterGeneratorSkill
@@ -26,18 +27,22 @@ def create_agent(websocket: WebSocket, memory: Memory) -> Agent:
     Returns:
         配置好的 Agent 实例
     """
+    # 创建技能管理工具（延迟设置 agent）
+    skill_manager_tool = SkillManagerTool()
+
     tools = [
         CurrentTimeTool(),
         WeatherTool(),
         RollDiceTool(),
         SkillCheckTool(),
+        skill_manager_tool,
     ]
     skills = [
         WeatherAssistantSkill(),
         ReActSkill(),
         CoCCharacterGeneratorSkill(),
     ]
-    return Agent(
+    agent = Agent(
         tools=tools,
         skills=skills,
         memory=memory,
@@ -45,6 +50,11 @@ def create_agent(websocket: WebSocket, memory: Memory) -> Agent:
         llm=llm,
         websocket=websocket,
     )
+
+    # 为技能管理工具设置 agent 实例
+    skill_manager_tool.set_agent(agent)
+
+    return agent
 
 
 # 创建 FastAPI 应用
