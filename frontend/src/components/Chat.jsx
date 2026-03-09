@@ -33,7 +33,11 @@ export default function Chat() {
 
   // 判断指定索引的气泡是否折叠
   const isCollapsed = useCallback((index, type) => {
-    if (collapseMode === 'all-collapsed') return true;
+    if (collapseMode === 'all-collapsed') {
+      // 简略模式：思考折叠，回答展开，工具折叠
+      if (type === 'report') return false;
+      return true;
+    }
     if (collapseMode === 'all-expanded') return false;
     // custom 模式
     return collapsedItems.has(index);
@@ -46,11 +50,25 @@ export default function Chat() {
       // 根据当前模式初始化 collapsedItems
       let newSet;
       if (collapseMode === 'all-collapsed') {
-        // 从折叠模式进入自定义：所有都折叠，然后展开点击的
-        newSet = new Set(messages.map((_, i) => i));
-        newSet.delete(index);
+        // 从简略模式进入自定义：保持简略模式的默认状态，然后翻转点击的
+        // 简略模式：思考折叠(true)，回答展开(false)，工具折叠(true)
+        newSet = new Set();
+        messages.forEach((msg, i) => {
+          if (msg.type === 'report') {
+            // 回答默认展开，不需要加入 collapsedItems
+          } else {
+            // 思考和工具默认折叠
+            newSet.add(i);
+          }
+        });
+        // 翻转点击的气泡状态
+        if (newSet.has(index)) {
+          newSet.delete(index);
+        } else {
+          newSet.add(index);
+        }
       } else if (collapseMode === 'all-expanded') {
-        // 从展开模式进入自定义：所有都展开，然后折叠点击的
+        // 从详细模式进入自定义：所有都展开，然后折叠点击的
         newSet = new Set();
         newSet.add(index);
       } else {
@@ -419,11 +437,26 @@ export default function Chat() {
               className={collapseMode === 'all-collapsed' ? 'active' : ''}
               onClick={() => { setCollapseMode('all-collapsed'); setCollapsedItems(new Set()); }}
             >
-              折叠
+              简略
             </button>
             <button
               className={collapseMode === 'custom' ? 'active' : ''}
-              onClick={() => { setCollapseMode('custom'); setCollapsedItems(new Set()); }}
+              onClick={() => {
+                if (collapseMode === 'all-collapsed') {
+                  // 从简略模式切换到自定义：保持简略模式的默认状态
+                  const newSet = new Set();
+                  messages.forEach((msg, i) => {
+                    if (msg.type !== 'report') {
+                      newSet.add(i);
+                    }
+                  });
+                  setCollapsedItems(newSet);
+                } else if (collapseMode === 'all-expanded') {
+                  // 从详细模式切换到自定义：所有都展开
+                  setCollapsedItems(new Set());
+                }
+                setCollapseMode('custom');
+              }}
             >
               自定义
             </button>
@@ -431,7 +464,7 @@ export default function Chat() {
               className={collapseMode === 'all-expanded' ? 'active' : ''}
               onClick={() => { setCollapseMode('all-expanded'); setCollapsedItems(new Set()); }}
             >
-              展开
+              详细
             </button>
           </div>
           {sessionId && <div className="session-id">Session: {sessionId}</div>}
@@ -453,6 +486,7 @@ export default function Chat() {
           if (msg.type === 'think') {
             const collapsed = isCollapsed(index, 'think');
             const isPlaceholder = msg.isPlaceholder;
+            const isStreaming = !msg.isComplete;
             return (
               <div
                 key={index}
@@ -466,8 +500,13 @@ export default function Chat() {
                 >
                   {isPlaceholder ? (
                     <span className="tool-call-thinking">思考中...</span>
-                  ) : "思考"}
-                  {collapsed ? ' ▶' : ' ▼'}
+                  ) : (
+                    <>
+                      思考
+                      {isStreaming && <span className="tool-call-thinking">思考中...</span>}
+                    </>
+                  )}
+                  {!isPlaceholder && (collapsed ? ' ▶' : ' ▼')}
                 </div>
                 {!collapsed && !isPlaceholder && (
                   <div className="message-content">
@@ -479,10 +518,23 @@ export default function Chat() {
           }
 
           if (msg.type === 'report') {
+            const collapsed = isCollapsed(index, 'report');
+            const isStreaming = !msg.isComplete;
             return (
-              <div key={index} className="message report">
-                <div className="message-header">回答</div>
-                <div className="message-content">{msg.content}</div>
+              <div key={index} className={`message report ${collapsed ? 'collapsed' : ''}`}>
+                <div
+                  className="message-header"
+                  onClick={() => toggleItemCollapse(index)}
+                  title={collapsed ? '点击展开' : '点击折叠'}
+                  style={{ cursor: 'pointer' }}
+                >
+                  回答
+                  {isStreaming && <span className="tool-call-thinking">回答中...</span>}
+                  {collapsed ? ' ▶' : ' ▼'}
+                </div>
+                {!collapsed && (
+                  <div className="message-content">{msg.content}</div>
+                )}
               </div>
             );
           }
