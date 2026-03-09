@@ -11,21 +11,22 @@ from skill import Skill
 
 class StreamState(Enum):
     """流式输出状态"""
-    NORMAL = "normal"           # 普通内容
-    IN_THINK = "think"          # 在思考标签内
-    IN_REPORT = "report"        # 在汇报标签内
+
+    NORMAL = "normal"  # 普通内容
+    IN_THINK = "think"  # 在思考标签内
+    IN_REPORT = "report"  # 在汇报标签内
 
 
 class StreamBuffer:
     """流式输出缓冲区，用于识别标签和发送分片消息"""
 
     def __init__(self, send_callback):
-        self.buffer = ""           # 原始内容缓冲区
+        self.buffer = ""  # 原始内容缓冲区
         self.send_callback = send_callback
         self.state = StreamState.NORMAL
-        self.pending_tag = ""      # 正在匹配的标签缓冲区
-        self.content_buffer = ""   # 当前状态的内容缓冲区
-        self.pending_events = []   # 待发送的异步事件队列
+        self.pending_tag = ""  # 正在匹配的标签缓冲区
+        self.content_buffer = ""  # 当前状态的内容缓冲区
+        self.pending_events = []  # 待发送的异步事件队列
 
     async def _send_event(self, msg_type: str, content: str = ""):
         """发送事件"""
@@ -52,16 +53,27 @@ class StreamBuffer:
             self.state = StreamState.NORMAL
             await self._send_event("report_end")
 
+    def _is_whitespace_only(self, text: str) -> bool:
+        """检查文本是否只有空白字符（包括换行符、空格、制表符等）"""
+        return not text or text.strip() == ""
+
     async def _flush_content(self):
         """刷新当前状态的内容缓冲区"""
-        if self.content_buffer:
-            if self.state == StreamState.IN_THINK:
-                await self._send_event("think_chunk", self.content_buffer)
-            else:
-                # 其他情况都转为 report 状态发送
-                await self._ensure_report_state()
-                await self._send_event("report_chunk", self.content_buffer)
+        if not self.content_buffer:
+            return
+
+        # 如果内容只有空白字符，直接清空不发送
+        if self._is_whitespace_only(self.content_buffer):
             self.content_buffer = ""
+            return
+
+        if self.state == StreamState.IN_THINK:
+            await self._send_event("think_chunk", self.content_buffer)
+        else:
+            # 其他情况都转为 report 状态发送
+            await self._ensure_report_state()
+            await self._send_event("report_chunk", self.content_buffer)
+        self.content_buffer = ""
 
     def _check_tag_in_buffer(self) -> tuple[bool, str, str]:
         """检查缓冲区是否包含完整标签，返回 (是否找到, 标签名, 剩余内容)"""
@@ -70,7 +82,7 @@ class StreamBuffer:
             if tag in self.buffer:
                 idx = self.buffer.index(tag)
                 before = self.buffer[:idx]
-                after = self.buffer[idx + len(tag):]
+                after = self.buffer[idx + len(tag) :]
                 return True, tag, before, after
 
         # 检查结束标签
@@ -78,7 +90,7 @@ class StreamBuffer:
             if tag in self.buffer:
                 idx = self.buffer.index(tag)
                 before = self.buffer[:idx]
-                after = self.buffer[idx + len(tag):]
+                after = self.buffer[idx + len(tag) :]
                 return True, tag, before, after
 
         return False, "", "", self.buffer
@@ -214,7 +226,7 @@ class Agent:
         """构建OpenAI格式的工具列表"""
         return [tool.to_openai_format() for tool in self.tools]
 
-    async def chat(self, query: str) -> str:
+    async def chat(self, query: str):
         """
         与Agent对话
         通过 WebSocket 发送各类消息事件
@@ -240,6 +252,8 @@ class Agent:
         full_response = ""
 
         while True:
+            print(">>>", messages)
+
             # 每次调用获取独立的流结果对象，避免并发冲突
             stream_gen, stream_result = await self.llm.astream(messages, tools)
 
@@ -256,6 +270,8 @@ class Agent:
             # 从独立结果对象获取完整响应和工具调用
             full_response = stream_result.full_response
             tool_calls = stream_result.tool_calls
+            print("<<<", full_response)
+            print("<<<", tool_calls)
 
             # 检查是否有工具调用
             if not tool_calls:
@@ -271,11 +287,13 @@ class Agent:
             tool_calls_info = []
             for tc in tool_calls:
                 func = tc["function"]
-                tool_calls_info.append({
-                    "id": tc["id"],
-                    "name": func["name"],
-                    "arguments": func["arguments"],
-                })
+                tool_calls_info.append(
+                    {
+                        "id": tc["id"],
+                        "name": func["name"],
+                        "arguments": func["arguments"],
+                    }
+                )
             await self._send_ws_message("tool_before", {"tool_calls": tool_calls_info})
 
             # 将助手消息（含工具调用）加入内存
@@ -293,11 +311,13 @@ class Agent:
 
                 result = await self._execute_tool(func_name, func_args)
                 self.memory.add_tool_result(tool_call_id, result)
-                tool_results.append({
-                    "id": tool_call_id,
-                    "name": func_name,
-                    "result": result,
-                })
+                tool_results.append(
+                    {
+                        "id": tool_call_id,
+                        "name": func_name,
+                        "result": result,
+                    }
+                )
 
             # 发送 tool_after 消息
             await self._send_ws_message("tool_after", {"results": tool_results})
@@ -307,9 +327,7 @@ class Agent:
             messages.extend(self.memory.get_messages())
 
         # 发送 complete 消息，表示本轮 chat 结束
-        await self._send_ws_message("complete", {"response": full_response})
-
-        return full_response
+        await self._send_ws_message("complete")
 
     async def _execute_tool(self, func_name: str, func_args: str) -> dict:
         """执行工具并返回dict结果，从本地 tools 列表中查找"""
@@ -343,14 +361,22 @@ class Agent:
                 validated = tool.input_schema(**args)
                 args = validated.model_dump()
             except Exception as e:
-                return {"error": "参数校验失败", "func_name": func_name, "message": str(e)}
+                return {
+                    "error": "参数校验失败",
+                    "func_name": func_name,
+                    "message": str(e),
+                }
 
         # 执行工具
         try:
             result = await tool.run(**args)
             # 确保返回的是dict
             if not isinstance(result, dict):
-                return {"error": "工具返回类型错误", "func_name": func_name, "message": "工具必须返回dict类型"}
+                return {
+                    "error": "工具返回类型错误",
+                    "func_name": func_name,
+                    "message": "工具必须返回dict类型",
+                }
             return result
         except Exception as e:
             return {"error": "工具执行错误", "func_name": func_name, "message": str(e)}
