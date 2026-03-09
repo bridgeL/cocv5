@@ -18,19 +18,28 @@ class StreamState(Enum):
 
 
 class StreamBuffer:
-    """流式输出缓冲区，用于识别标签和发送分片消息"""
+    """流式输出缓冲区，用于识别标签和发送分片消息
+
+    标签检测使用字符级状态机，正确处理标签被分割在多个 chunk 中的情况。
+    支持标签: <think>, </think>, <report>, </report>
+    """
+
+    # 所有支持的标签
+    TAGS = ["<think>", "</think>", "<report>", "</report>"]
+    # 最长标签长度，用于确定保留缓冲区大小
+    MAX_TAG_LEN = max(len(tag) for tag in TAGS)
 
     def __init__(self, send_callback):
         self.buffer = ""  # 原始内容缓冲区
         self.send_callback = send_callback
         self.state = StreamState.NORMAL
-        self.pending_tag = ""  # 正在匹配的标签缓冲区
         self.content_buffer = ""  # 当前状态的内容缓冲区
-        self.pending_events = []  # 待发送的异步事件队列
 
     async def _send_event(self, msg_type: str, content: str = ""):
         """发送事件"""
         if content:
+            # DEBUG: 打印发送的内容，用于排查换行符问题
+            print(f"[DEBUG] Sending {msg_type}: {repr(content)}")
             await self.send_callback(msg_type, {"content": content})
         else:
             await self.send_callback(msg_type, {})
@@ -62,8 +71,9 @@ class StreamBuffer:
         if not self.content_buffer:
             return
 
-        # 如果内容只有空白字符，直接清空不发送
-        if self._is_whitespace_only(self.content_buffer):
+        # 只有在非流式状态下，才过滤纯空白内容
+        # 在 think 和 report 状态下，换行符是格式的一部分，需要保留
+        if self.state == StreamState.NORMAL and self._is_whitespace_only(self.content_buffer):
             self.content_buffer = ""
             return
 
@@ -75,25 +85,34 @@ class StreamBuffer:
             await self._send_event("report_chunk", self.content_buffer)
         self.content_buffer = ""
 
-    def _check_tag_in_buffer(self) -> tuple[bool, str, str]:
-        """检查缓冲区是否包含完整标签，返回 (是否找到, 标签名, 剩余内容)"""
-        # 检查开始标签
-        for tag in ["<思考>", "<汇报>"]:
-            if tag in self.buffer:
-                idx = self.buffer.index(tag)
-                before = self.buffer[:idx]
-                after = self.buffer[idx + len(tag) :]
-                return True, tag, before, after
+    def _find_earliest_tag(self) -> tuple[str, int] | None:
+        """在缓冲区中查找最早出现的完整标签
 
-        # 检查结束标签
-        for tag in ["</思考>", "</汇报>"]:
-            if tag in self.buffer:
-                idx = self.buffer.index(tag)
-                before = self.buffer[:idx]
-                after = self.buffer[idx + len(tag) :]
-                return True, tag, before, after
+        返回: (标签名, 位置) 或 None（未找到）
+        """
+        earliest = None
+        earliest_pos = float('inf')
 
-        return False, "", "", self.buffer
+        for tag in self.TAGS:
+            pos = self.buffer.find(tag)
+            if pos != -1 and pos < earliest_pos:
+                earliest_pos = pos
+                earliest = tag
+
+        if earliest is None:
+            return None
+        return (earliest, earliest_pos)
+
+    def _can_contain_tag(self, text: str) -> bool:
+        """检查文本是否可能包含标签的一部分（即包含 '<' 或标签前缀）"""
+        if '<' in text:
+            return True
+        # 检查是否可能匹配任何标签的前缀
+        for tag in self.TAGS:
+            for i in range(1, len(tag)):
+                if text.endswith(tag[:i]):
+                    return True
+        return False
 
     async def process(self, text: str) -> str:
         """
@@ -103,25 +122,39 @@ class StreamBuffer:
         self.buffer += text
 
         while self.buffer:
-            found, tag, before, after = self._check_tag_in_buffer()
+            result = self._find_earliest_tag()
 
-            if not found:
-                # 缓冲区中没有完整标签，尝试发送已确认的内容
-                # 保留可能属于标签的最后 5 个字符
-                if len(self.buffer) > 5:
-                    safe_content = self.buffer[:-5]
-                    self.buffer = self.buffer[-5:]
-                    self.content_buffer += safe_content
-                    await self._flush_content()
+            if result is None:
+                # 缓冲区中没有完整标签
+                # 如果缓冲区很短，直接保留等待更多数据
+                if len(self.buffer) <= self.MAX_TAG_LEN:
+                    break
+
+                # 缓冲区较长，检查是否可能包含标签
+                if self._can_contain_tag(self.buffer):
+                    # 可能包含标签，保留最后 MAX_TAG_LEN 个字符
+                    safe_content = self.buffer[:-self.MAX_TAG_LEN]
+                    self.buffer = self.buffer[-self.MAX_TAG_LEN:]
+                else:
+                    # 不可能包含标签，全部发送
+                    safe_content = self.buffer
+                    self.buffer = ""
+
+                self.content_buffer += safe_content
+                await self._flush_content()
                 break
 
             # 找到了完整标签
+            tag, pos = result
             # 1. 先处理标签前的内容
+            before = self.buffer[:pos]
             self.content_buffer += before
             await self._flush_content()
 
             # 2. 处理标签状态转换
-            if tag == "<思考>":
+            after = self.buffer[pos + len(tag):]
+
+            if tag == "<think>":
                 # 记录切换前的状态
                 was_normal = self.state == StreamState.NORMAL
                 # 切换到 think 状态前，先关闭当前状态
@@ -131,7 +164,7 @@ class StreamBuffer:
                 # 只有从 NORMAL 状态切换时才去除换行符
                 if was_normal:
                     after = after.lstrip("\n")
-            elif tag == "</思考>":
+            elif tag == "</think>":
                 if self.state == StreamState.IN_THINK:
                     self.state = StreamState.NORMAL
                     await self._send_event("think_end")
@@ -140,7 +173,7 @@ class StreamBuffer:
                 else:
                     # 不在思考状态，当作普通内容
                     self.content_buffer += tag
-            elif tag == "<汇报>":
+            elif tag == "<report>":
                 # 记录切换前的状态
                 was_normal = self.state == StreamState.NORMAL
                 # 切换到 report 状态前，先关闭当前状态
@@ -150,7 +183,7 @@ class StreamBuffer:
                 # 只有从 NORMAL 状态切换时才去除换行符
                 if was_normal:
                     after = after.lstrip("\n")
-            elif tag == "</汇报>":
+            elif tag == "</report>":
                 if self.state == StreamState.IN_REPORT:
                     self.state = StreamState.NORMAL
                     await self._send_event("report_end")
