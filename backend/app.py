@@ -28,15 +28,12 @@ def create_agent(websocket: WebSocket, memory: Memory) -> Agent:
     Returns:
         配置好的 Agent 实例
     """
-    # 创建技能管理工具（延迟设置 agent）
-    skill_manager_tool = SkillManagerTool()
-
     tools = [
         CurrentTimeTool(),
         WeatherTool(),
         RollDiceTool(),
         SkillCheckTool(),
-        skill_manager_tool,
+        SkillManagerTool(),
     ]
     skills = [
         WeatherAssistantSkill(),
@@ -52,9 +49,6 @@ def create_agent(websocket: WebSocket, memory: Memory) -> Agent:
         llm=llm,
         websocket=websocket,
     )
-
-    # 为技能管理工具设置 agent 实例
-    skill_manager_tool.set_agent(agent)
 
     return agent
 
