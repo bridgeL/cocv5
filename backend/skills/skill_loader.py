@@ -6,7 +6,6 @@ class SkillLoaderSkill(Skill):
 
     name = "技能自动加载器"
     desc = "在收到用户请求时，自动识别并加载相关的技能，确保使用正确的工具和能力来解决问题"
-    installed = True
     content = """
 ## 技能自动加载流程
 

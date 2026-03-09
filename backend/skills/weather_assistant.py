@@ -6,7 +6,6 @@ class WeatherAssistantSkill(Skill):
 
     name = "天气助手"
     desc = "帮助用户获取实时天气"
-    installed = False
     content = """
 工作流程
 - 如果用户没有说明时间，那么调用工具查询当前时间
