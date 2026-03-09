@@ -462,19 +462,13 @@ export default function Chat() {
                   style={{ cursor: 'pointer' }}
                 >
                   {isPlaceholder ? (
-                    <span className="thinking-title">思考中<span className="thinking-dots">...</span></span>
-                  ) : (
-                    "思考"
-                  )}
+                    <span className="tool-call-thinking">思考中...</span>
+                  ) : "思考"}
                   {collapsed ? ' ▶' : ' ▼'}
                 </div>
-                {!collapsed && (
+                {!collapsed && !isPlaceholder && (
                   <div className="message-content">
-                    {isPlaceholder ? (
-                      <span className="thinking-dots-inline"><span></span><span></span><span></span></span>
-                    ) : (
-                      msg.content
-                    )}
+                    {msg.content}
                   </div>
                 )}
               </div>
@@ -507,15 +501,20 @@ export default function Chat() {
           return null;
         })}
 
+        {/* 上一个气泡已完成，但还在等待下一个气泡开始时显示占位思考气泡 */}
         {isProcessing &&
-          !messages.some(m => m.type === 'think' && !m.isComplete) &&
-          !messages.some(m => m.type === 'tool' && m.status === 'executing') && (
+          messages.length > 0 &&
+          (() => {
+            const lastMsg = messages[messages.length - 1];
+            // 检查最后一个消息是否已完成
+            if (lastMsg.type === 'tool') {
+              return lastMsg.status !== 'executing';
+            }
+            return lastMsg.isComplete;
+          })() && (
           <div className="message think placeholder">
             <div className="message-header">
-              <span className="thinking-title">思考中<span className="thinking-dots">...</span></span>
-            </div>
-            <div className="message-content">
-              <span className="thinking-dots-inline"><span></span><span></span><span></span></span>
+              <span className="tool-call-thinking">思考中...</span>
             </div>
           </div>
         )}
