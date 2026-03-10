@@ -5,6 +5,7 @@ import UserPage from './components/User/UserPage'
 import RoomList from './components/RoomList'
 import RoomChat from './components/RoomChat'
 import { hasUser } from './utils/user'
+import { WebSocketProvider } from './contexts/WebSocketContext'
 import './App.css'
 
 /**
@@ -27,9 +28,10 @@ function LoginGuard({ children }) {
 
 function App() {
   return (
-    <BrowserRouter>
-      <div className="app">
-        <Routes>
+    <WebSocketProvider>
+      <BrowserRouter>
+        <div className="app">
+          <Routes>
           <Route
             path="/"
             element={
@@ -72,7 +74,8 @@ function App() {
           />
         </Routes>
       </div>
-    </BrowserRouter>
+      </BrowserRouter>
+    </WebSocketProvider>
   )
 }
 

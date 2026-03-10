@@ -1,22 +1,19 @@
 import { useState, useRef, useEffect, useCallback } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
-import { ChevronLeft, Users, Crown, Send, LogOut } from 'lucide-react';
+import { ChevronLeft, Users, Crown, Send } from 'lucide-react';
 import { getUser } from '../../utils/user';
+import { useWebSocket } from '../../contexts/WebSocketContext';
 import './RoomChat.css';
-
-const WS_URL = 'ws://127.0.0.1:8080/ws';
 
 export default function RoomChat() {
   const navigate = useNavigate();
   const { roomId } = useParams();
-  const wsRef = useRef(null);
-  const reconnectTimeoutRef = useRef(null);
+  const { connectionStatus, send, onMessage } = useWebSocket();
   const messagesEndRef = useRef(null);
 
   // 状态
   const [messages, setMessages] = useState([]);
   const [input, setInput] = useState('');
-  const [connectionStatus, setConnectionStatus] = useState('connecting');
   const [roomInfo, setRoomInfo] = useState(null);
   const [members, setMembers] = useState([]);
   const [error, setError] = useState('');
@@ -29,231 +26,204 @@ export default function RoomChat() {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, []);
 
-  // 建立WebSocket连接
-  const connectWebSocket = useCallback(() => {
-    if (wsRef.current?.readyState === WebSocket.OPEN) return;
-
-    setConnectionStatus('connecting');
-    console.log('[RoomChat] 连接WebSocket...');
-
-    const ws = new WebSocket(WS_URL);
-    wsRef.current = ws;
-
-    ws.onopen = () => {
-      console.log('[RoomChat] WebSocket已连接');
-      setConnectionStatus('connected');
-    };
-
-    ws.onmessage = (event) => {
-      try {
-        const data = JSON.parse(event.data);
-        handleWebSocketMessage(data);
-      } catch (e) {
-        console.error('[RoomChat] 解析消息失败:', e);
-      }
-    };
-
-    ws.onclose = () => {
-      console.log('[RoomChat] WebSocket已断开');
-      setConnectionStatus('disconnected');
-      wsRef.current = null;
-      setIsJoined(false);
-
-      reconnectTimeoutRef.current = setTimeout(() => {
-        connectWebSocket();
-      }, 3000);
-    };
-
-    ws.onerror = (error) => {
-      console.error('[RoomChat] WebSocket错误:', error);
-      setConnectionStatus('disconnected');
-    };
-  }, []);
-
-  // 处理WebSocket消息
-  const handleWebSocketMessage = (data) => {
-    const { type, ...payload } = data;
-
-    switch (type) {
-      case 'session_init':
-        if (user && wsRef.current?.readyState === WebSocket.OPEN) {
-          wsRef.current.send(JSON.stringify({
-            type: 'user_auth',
-            user_id: user.id,
-            nickname: user.nickname
-          }));
-        }
-        break;
-
-      case 'user_auth_success':
-        // 认证成功后加入房间
-        joinRoom();
-        break;
-
-      case 'room_joined':
-        setRoomInfo(payload.room);
-        setMembers(payload.members || []);
-        setIsJoined(true);
-        // 加载历史消息
-        loadRoomHistory();
-        break;
-
-      case 'room_message':
-        // 房间消息
-        setMessages(prev => [...prev, {
-          id: Date.now(),
-          type: 'user',
-          userId: payload.user_id,
-          nickname: payload.nickname,
-          content: payload.content,
-          isKP: payload.is_kp,
-          timestamp: payload.timestamp
-        }]);
-        setTimeout(scrollToBottom, 100);
-        break;
-
-      case 'think_start':
-      case 'report_start':
-        // KP开始思考/回答
-        setMessages(prev => [...prev, {
-          id: `kp-${Date.now()}`,
-          type: type === 'think_start' ? 'think' : 'report',
-          nickname: 'KP',
-          content: '',
-          isKP: true,
-          isStreaming: true
-        }]);
-        break;
-
-      case 'think_chunk':
-      case 'report_chunk':
-        // KP流式输出
-        setMessages(prev => {
-          const lastMsg = prev[prev.length - 1];
-          if (lastMsg && lastMsg.isKP && lastMsg.isStreaming) {
-            const newMessages = [...prev];
-            newMessages[newMessages.length - 1] = {
-              ...lastMsg,
-              content: lastMsg.content + (payload.content || '')
-            };
-            return newMessages;
-          }
-          return prev;
-        });
-        break;
-
-      case 'think_end':
-      case 'report_end':
-        // KP结束思考/回答
-        setMessages(prev => {
-          const lastMsg = prev[prev.length - 1];
-          if (lastMsg && lastMsg.isKP && lastMsg.isStreaming) {
-            const newMessages = [...prev];
-            newMessages[newMessages.length - 1] = {
-              ...lastMsg,
-              isStreaming: false
-            };
-            return newMessages;
-          }
-          return prev;
-        });
-        break;
-
-      case 'member_joined':
-        // 新成员加入
-        if (payload.user_id !== user?.id) {
-          setMembers(prev => [...prev, {
-            user_id: payload.user_id,
-            nickname: payload.nickname,
-            is_owner: false
-          }]);
-        }
-        break;
-
-      case 'member_left':
-        // 成员离开
-        setMembers(prev => prev.filter(m => m.user_id !== payload.user_id));
-        break;
-
-      case 'room_closed':
-        // 房间关闭
-        setError('房间已关闭');
-        setTimeout(() => navigate('/rooms'), 2000);
-        break;
-
-      case 'room_history':
-        // 历史消息
-        if (payload.messages) {
-          const formatted = payload.messages.map(msg => ({
-            id: msg.id,
-            type: msg.role === 'assistant' ? 'report' : 'user',
-            userId: msg.user_id,
-            nickname: msg.role === 'assistant' ? 'KP' : members.find(m => m.user_id === msg.user_id)?.nickname || '未知',
-            content: msg.content,
-            isKP: msg.role === 'assistant',
-            isStreaming: false
-          }));
-          setMessages(formatted);
-        }
-        break;
-
-      case 'room_error':
-        setError(payload.error);
-        setTimeout(() => setError(''), 5000);
-        if (payload.error?.includes('不在该房间')) {
-          setTimeout(() => navigate('/rooms'), 2000);
-        }
-        break;
-
-      default:
-        break;
-    }
-  };
-
   // 加入房间
-  const joinRoom = () => {
-    if (wsRef.current?.readyState === WebSocket.OPEN && roomId) {
-      wsRef.current.send(JSON.stringify({
-        type: 'join_room',
-        room_id: roomId
-      }));
+  const joinRoom = useCallback(() => {
+    if (roomId) {
+      send('join_room', { room_id: roomId });
     }
-  };
+  }, [send, roomId]);
 
   // 加载房间历史
-  const loadRoomHistory = () => {
-    if (wsRef.current?.readyState === WebSocket.OPEN && roomId) {
-      wsRef.current.send(JSON.stringify({
-        type: 'load_room_history',
-        room_id: roomId,
-        limit: 20
-      }));
+  const loadRoomHistory = useCallback(() => {
+    if (roomId) {
+      send('load_room_history', { room_id: roomId, limit: 20 });
     }
-  };
+  }, [send, roomId]);
+
+  // 注册WebSocket消息监听
+  useEffect(() => {
+    const unsubscribes = [];
+
+    // 监听加入房间成功
+    unsubscribes.push(onMessage('room_joined', (payload) => {
+      setRoomInfo(payload.room);
+      setMembers(payload.members || []);
+      setIsJoined(true);
+      loadRoomHistory();
+    }));
+
+    // 监听房间消息
+    unsubscribes.push(onMessage('room_message', (payload) => {
+      setMessages(prev => [...prev, {
+        id: Date.now(),
+        type: 'user',
+        userId: payload.user_id,
+        nickname: payload.nickname,
+        content: payload.content,
+        isKP: payload.is_kp,
+        timestamp: payload.timestamp
+      }]);
+      setTimeout(scrollToBottom, 100);
+    }));
+
+    // 监听KP思考/回答开始
+    unsubscribes.push(onMessage('think_start', () => {
+      setMessages(prev => [...prev, {
+        id: `kp-${Date.now()}`,
+        type: 'think',
+        nickname: 'KP',
+        content: '',
+        isKP: true,
+        isStreaming: true
+      }]);
+    }));
+
+    unsubscribes.push(onMessage('report_start', () => {
+      setMessages(prev => [...prev, {
+        id: `kp-${Date.now()}`,
+        type: 'report',
+        nickname: 'KP',
+        content: '',
+        isKP: true,
+        isStreaming: true
+      }]);
+    }));
+
+    // 监听KP流式输出
+    unsubscribes.push(onMessage('think_chunk', (payload) => {
+      setMessages(prev => {
+        const lastMsg = prev[prev.length - 1];
+        if (lastMsg && lastMsg.isKP && lastMsg.isStreaming && lastMsg.type === 'think') {
+          const newMessages = [...prev];
+          newMessages[newMessages.length - 1] = {
+            ...lastMsg,
+            content: lastMsg.content + (payload.content || '')
+          };
+          return newMessages;
+        }
+        return prev;
+      });
+    }));
+
+    unsubscribes.push(onMessage('report_chunk', (payload) => {
+      setMessages(prev => {
+        const lastMsg = prev[prev.length - 1];
+        if (lastMsg && lastMsg.isKP && lastMsg.isStreaming && lastMsg.type === 'report') {
+          const newMessages = [...prev];
+          newMessages[newMessages.length - 1] = {
+            ...lastMsg,
+            content: lastMsg.content + (payload.content || '')
+          };
+          return newMessages;
+        }
+        return prev;
+      });
+    }));
+
+    // 监听KP结束
+    unsubscribes.push(onMessage('think_end', () => {
+      setMessages(prev => {
+        const lastMsg = prev[prev.length - 1];
+        if (lastMsg && lastMsg.isKP && lastMsg.isStreaming) {
+          const newMessages = [...prev];
+          newMessages[newMessages.length - 1] = { ...lastMsg, isStreaming: false };
+          return newMessages;
+        }
+        return prev;
+      });
+    }));
+
+    unsubscribes.push(onMessage('report_end', () => {
+      setMessages(prev => {
+        const lastMsg = prev[prev.length - 1];
+        if (lastMsg && lastMsg.isKP && lastMsg.isStreaming) {
+          const newMessages = [...prev];
+          newMessages[newMessages.length - 1] = { ...lastMsg, isStreaming: false };
+          return newMessages;
+        }
+        return prev;
+      });
+    }));
+
+    // 监听成员加入
+    unsubscribes.push(onMessage('member_joined', (payload) => {
+      if (payload.user_id !== user?.id) {
+        setMembers(prev => [...prev, {
+          user_id: payload.user_id,
+          nickname: payload.nickname,
+          is_owner: false
+        }]);
+      }
+    }));
+
+    // 监听成员离开
+    unsubscribes.push(onMessage('member_left', (payload) => {
+      setMembers(prev => prev.filter(m => m.user_id !== payload.user_id));
+    }));
+
+    // 监听房间关闭
+    unsubscribes.push(onMessage('room_closed', () => {
+      setError('房间已关闭');
+      setTimeout(() => navigate('/rooms'), 2000);
+    }));
+
+    // 监听历史消息
+    unsubscribes.push(onMessage('room_history', (payload) => {
+      if (payload.messages) {
+        const formatted = payload.messages.map(msg => ({
+          id: msg.id,
+          type: msg.role === 'assistant' ? 'report' : 'user',
+          userId: msg.user_id,
+          nickname: msg.role === 'assistant' ? 'KP' : members.find(m => m.user_id === msg.user_id)?.nickname || '未知',
+          content: msg.content,
+          isKP: msg.role === 'assistant',
+          isStreaming: false
+        }));
+        setMessages(formatted);
+      }
+    }));
+
+    // 监听错误
+    unsubscribes.push(onMessage('room_error', (payload) => {
+      setError(payload.error);
+      setTimeout(() => setError(''), 5000);
+      if (payload.error?.includes('不在该房间')) {
+        setTimeout(() => navigate('/rooms'), 2000);
+      }
+    }));
+
+    return () => {
+      unsubscribes.forEach(unsubscribe => unsubscribe());
+    };
+  }, [onMessage, user?.id, members, navigate, scrollToBottom, loadRoomHistory]);
+
+  // 连接成功后加入房间
+  useEffect(() => {
+    if (connectionStatus === 'connected' && roomId) {
+      joinRoom();
+    }
+  }, [connectionStatus, roomId, joinRoom]);
+
+  // 消息更新时滚动到底部
+  useEffect(() => {
+    scrollToBottom();
+  }, [messages, scrollToBottom]);
 
   // 离开房间
   const leaveRoom = () => {
-    if (wsRef.current?.readyState === WebSocket.OPEN && roomId) {
-      wsRef.current.send(JSON.stringify({
-        type: 'leave_room',
-        room_id: roomId
-      }));
-    }
+    send('leave_room', { room_id: roomId });
     navigate('/rooms');
   };
 
   // 发送消息
   const sendMessage = () => {
     const text = input.trim();
-    if (!text || !wsRef.current || wsRef.current.readyState !== WebSocket.OPEN) {
-      return;
-    }
+    if (!text) return;
 
-    wsRef.current.send(JSON.stringify({
-      type: 'room_chat',
+    send('room_chat', {
       room_id: roomId,
       content: text
-    }));
+    });
 
     setInput('');
   };
@@ -265,25 +235,6 @@ export default function RoomChat() {
       sendMessage();
     }
   };
-
-  // 初始化WebSocket
-  useEffect(() => {
-    connectWebSocket();
-
-    return () => {
-      if (reconnectTimeoutRef.current) {
-        clearTimeout(reconnectTimeoutRef.current);
-      }
-      if (wsRef.current) {
-        wsRef.current.close();
-      }
-    };
-  }, [connectWebSocket]);
-
-  // 消息更新时滚动到底部
-  useEffect(() => {
-    scrollToBottom();
-  }, [messages, scrollToBottom]);
 
   // 状态指示器
   const getStatusIndicator = () => {
