@@ -17,6 +17,8 @@ from skills.weather_assistant import WeatherAssistantSkill
 from skills.react_reasoning import ReActSkill
 from skills.coc_character_generator import CoCCharacterGeneratorSkill
 from skills.skill_loader import SkillLoaderSkill
+from room_manager import room_manager
+from room_agent import room_agent_manager
 
 
 def create_agent(websocket: WebSocket, memory: Memory) -> Agent:
@@ -58,8 +60,32 @@ def create_agent(websocket: WebSocket, memory: Memory) -> Agent:
     return agent
 
 
+# 初始化 RoomAgentManager（在应用启动时调用）
+def init_room_agent_manager():
+    """初始化RoomAgentManager，设置工具和技能"""
+    skills = [
+        WeatherAssistantSkill(),
+        ReActSkill(),
+        CoCCharacterGeneratorSkill(),
+        SkillLoaderSkill(),
+    ]
+    tools = [
+        CurrentTimeTool(),
+        WeatherTool(),
+        RollDiceTool(),
+        SkillCheckTool(),
+        SkillManagerTool(skills),
+        CoCCharacterAttributesTool(),
+    ]
+    room_agent_manager.initialize(tools=tools, skills=skills, llm=llm)
+    print("[✓] RoomAgentManager 初始化完成")
+
+
 # 创建 FastAPI 应用
 app = FastAPI(title="WebSocket Demo HTTP Server")
+
+# 初始化 RoomAgentManager
+init_room_agent_manager()
 
 # 配置 CORS
 app.add_middleware(
@@ -130,6 +156,208 @@ async def websocket_endpoint(websocket: WebSocket):
             await conn.send("error", {"error": error_msg})
 
     conn.on("agent_chat", handle_agent_chat)
+
+    # ===== 房间相关消息处理器 =====
+
+    async def handle_list_rooms(data: dict):
+        """获取房间列表"""
+        if not conn.user_id:
+            await conn.send("room_error", {"error": "请先登录"})
+            return
+
+        tab = data.get("tab", "hall")
+        rooms = room_manager.get_room_list(conn.user_id, tab)
+        await conn.send("rooms_list", {"rooms": rooms, "tab": tab})
+
+    async def handle_create_room(data: dict):
+        """创建房间"""
+        if not conn.user_id:
+            await conn.send("room_error", {"error": "请先登录"})
+            return
+
+        name = data.get("name", "").strip()
+        password = data.get("password")
+
+        if not name:
+            await conn.send("room_error", {"error": "房间名称不能为空"})
+            return
+
+        try:
+            room = await room_manager.create_room(
+                name=name,
+                owner_id=conn.user_id,
+                nickname=conn.nickname,
+                password=password,
+                ws_connection=conn
+            )
+
+            # 创建KP Agent
+            async def broadcast_to_room(msg_type: str, msg_data: dict):
+                await room_manager.broadcast_to_room(room["id"], msg_type, msg_data)
+
+            agent = await room_agent_manager.create_agent(
+                room_id=room["id"],
+                broadcast_callback=broadcast_to_room
+            )
+
+            # 保存KP session_id到房间
+            from memory import RoomMemory
+            room_memory = RoomMemory()
+            room_memory.set_kp_session(room["id"], agent.get_session_id())
+
+            # 获取成员列表
+            members = room_manager.get_room_members(room["id"])
+
+            await conn.send("room_created", {"room": room, "members": members})
+            print(f"[✓] 创建房间成功: {room['id']} ({name}) by {conn.nickname}")
+        except Exception as e:
+            await conn.send("room_error", {"error": f"创建房间失败: {str(e)}"})
+
+    async def handle_join_room(data: dict):
+        """加入房间"""
+        if not conn.user_id:
+            await conn.send("room_error", {"error": "请先登录"})
+            return
+
+        room_id = data.get("room_id")
+        password = data.get("password")
+
+        if not room_id:
+            await conn.send("room_error", {"error": "房间ID不能为空"})
+            return
+
+        try:
+            result = await room_manager.join_room(
+                room_id=room_id,
+                user_id=conn.user_id,
+                nickname=conn.nickname,
+                password=password,
+                ws_connection=conn
+            )
+
+            await conn.send("room_joined", result)
+            print(f"[✓] 加入房间成功: {conn.nickname} -> {room_id}")
+        except ValueError as e:
+            await conn.send("room_error", {"error": str(e)})
+        except Exception as e:
+            await conn.send("room_error", {"error": f"加入房间失败: {str(e)}"})
+
+    async def handle_leave_room(data: dict):
+        """离开房间"""
+        if not conn.user_id:
+            await conn.send("room_error", {"error": "请先登录"})
+            return
+
+        room_id = data.get("room_id")
+        if not room_id:
+            await conn.send("room_error", {"error": "房间ID不能为空"})
+            return
+
+        success = await room_manager.leave_room(room_id, conn.user_id)
+        if success:
+            await conn.send("room_left", {"room_id": room_id})
+            print(f"[✓] 离开房间成功: {conn.nickname} -> {room_id}")
+        else:
+            await conn.send("room_error", {"error": "离开房间失败"})
+
+    async def handle_close_room(data: dict):
+        """关闭房间（仅房主）"""
+        if not conn.user_id:
+            await conn.send("room_error", {"error": "请先登录"})
+            return
+
+        room_id = data.get("room_id")
+        if not room_id:
+            await conn.send("room_error", {"error": "房间ID不能为空"})
+            return
+
+        success = await room_manager.close_room(room_id, conn.user_id)
+        if success:
+            # 移除KP Agent
+            room_agent_manager.remove_agent(room_id)
+            await conn.send("room_closed", {"room_id": room_id})
+            print(f"[✓] 关闭房间成功: {room_id} by {conn.nickname}")
+        else:
+            await conn.send("room_error", {"error": "关闭房间失败，可能不是房主"})
+
+    async def handle_room_chat(data: dict):
+        """房间内发言"""
+        if not conn.user_id:
+            await conn.send("room_error", {"error": "请先登录"})
+            return
+
+        room_id = data.get("room_id")
+        content = data.get("content", "").strip()
+
+        if not room_id:
+            await conn.send("room_error", {"error": "房间ID不能为空"})
+            return
+
+        if not content:
+            await conn.send("room_error", {"error": "消息内容不能为空"})
+            return
+
+        # 检查用户是否在房间中
+        if not room_manager.is_user_in_room(conn.user_id, room_id):
+            await conn.send("room_error", {"error": "您不在该房间中"})
+            return
+
+        # 保存消息到数据库
+        room_manager.add_room_message(
+            room_id=room_id,
+            user_id=conn.user_id,
+            role="user",
+            content=content
+        )
+
+        # 广播消息给房间所有成员
+        await room_manager.broadcast_to_room(room_id, "room_message", {
+            "room_id": room_id,
+            "user_id": conn.user_id,
+            "nickname": conn.nickname,
+            "content": content,
+            "is_kp": False,
+            "timestamp": str(int(__import__('time').time() * 1000))
+        })
+
+        # 发送给KP Agent处理
+        await room_agent_manager.handle_player_message(room_id, conn.nickname, content)
+
+        print(f"[🗨️] 房间消息: [{room_id}] {conn.nickname}: {content[:50]}...")
+
+    async def handle_load_room_history(data: dict):
+        """加载房间历史消息"""
+        if not conn.user_id:
+            await conn.send("room_error", {"error": "请先登录"})
+            return
+
+        room_id = data.get("room_id")
+        if not room_id:
+            await conn.send("room_error", {"error": "房间ID不能为空"})
+            return
+
+        # 检查用户是否在房间中
+        if not room_manager.is_user_in_room(conn.user_id, room_id):
+            await conn.send("room_error", {"error": "您不在该房间中"})
+            return
+
+        limit = data.get("limit", 20)
+        messages = room_manager.get_room_messages(room_id, limit)
+
+        await conn.send("room_history", {
+            "room_id": room_id,
+            "messages": messages
+        })
+
+    # 注册房间消息处理器
+    conn.on("list_rooms", handle_list_rooms)
+    conn.on("create_room", handle_create_room)
+    conn.on("join_room", handle_join_room)
+    conn.on("leave_room", handle_leave_room)
+    conn.on("close_room", handle_close_room)
+    conn.on("room_chat", handle_room_chat)
+    conn.on("load_room_history", handle_load_room_history)
+
     await conn.handle()
 
 

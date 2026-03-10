@@ -2,6 +2,8 @@ import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom'
 import Chat from './components/Chat'
 import LoginPage from './components/Login/LoginPage'
 import UserPage from './components/User/UserPage'
+import RoomList from './components/RoomList'
+import RoomChat from './components/RoomChat'
 import { hasUser } from './utils/user'
 import './App.css'
 
@@ -49,6 +51,22 @@ function App() {
             element={
               <RequireAuth>
                 <UserPage />
+              </RequireAuth>
+            }
+          />
+          <Route
+            path="/rooms"
+            element={
+              <RequireAuth>
+                <RoomList />
+              </RequireAuth>
+            }
+          />
+          <Route
+            path="/rooms/:roomId"
+            element={
+              <RequireAuth>
+                <RoomChat />
               </RequireAuth>
             }
           />

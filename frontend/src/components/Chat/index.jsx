@@ -1,6 +1,6 @@
 import { useState, useRef, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { User } from 'lucide-react';
+import { User, Users } from 'lucide-react';
 import ToolCall from '../ToolCall';
 import { getUser } from '../../utils/user';
 import './Chat.css';
@@ -502,6 +502,14 @@ export default function Chat() {
           </div>
         </div>
         <div className="header-right">
+          {/* 房间列表入口 */}
+          <button
+            className="rooms-menu-button"
+            onClick={() => navigate('/rooms')}
+            title="房间列表"
+          >
+            <Users size={18} />
+          </button>
           {/* 用户入口 */}
           <button
             className="user-menu-button"

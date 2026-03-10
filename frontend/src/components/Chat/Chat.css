@@ -111,6 +111,26 @@
   color: white;
 }
 
+/* 房间列表按钮 */
+.rooms-menu-button {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  border: none;
+  background: #f0f0f0;
+  border-radius: 6px;
+  color: #666;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.rooms-menu-button:hover {
+  background: #4caf50;
+  color: white;
+}
+
 /* 消息区域 */
 .messages {
   flex: 1;
