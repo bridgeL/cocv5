@@ -14,9 +14,10 @@ export default function RoomList() {
   const { connectionStatus, send, onMessage } = useWebSocket();
 
   // 状态
-  const [activeTab, setActiveTab] = useState('created');
+  const [activeTab, setActiveTab] = useState('my');
   const [rooms, setRooms] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [myRoomsLoaded, setMyRoomsLoaded] = useState({ created: false, joined: false });
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [showJoinModal, setShowJoinModal] = useState(false);
   const [selectedRoom, setSelectedRoom] = useState(null);
@@ -30,8 +31,23 @@ export default function RoomList() {
 
     // 监听房间列表
     unsubscribes.push(onMessage('rooms_list', (payload) => {
-      setRooms(payload.rooms || []);
-      setIsLoading(false);
+      const tab = payload.tab;
+      if (activeTab === 'my' && tab) {
+        // 合并 created 和 joined 的结果
+        setRooms(prev => {
+          const existingIds = new Set(prev.map(r => r.id));
+          const newRooms = (payload.rooms || []).filter(r => !existingIds.has(r.id));
+          return [...prev, ...newRooms];
+        });
+        setMyRoomsLoaded(prev => ({ ...prev, [tab]: true }));
+        // 两个都加载完成才结束 loading
+        if (tab === 'joined' || myRoomsLoaded.created) {
+          setIsLoading(false);
+        }
+      } else {
+        setRooms(payload.rooms || []);
+        setIsLoading(false);
+      }
     }));
 
     // 监听创建房间成功
@@ -58,7 +74,14 @@ export default function RoomList() {
   // 加载房间列表
   const loadRooms = useCallback(() => {
     setIsLoading(true);
-    send('list_rooms', { tab: activeTab });
+    if (activeTab === 'my') {
+      setRooms([]);
+      setMyRoomsLoaded({ created: false, joined: false });
+      send('list_rooms', { tab: 'created' });
+      send('list_rooms', { tab: 'joined' });
+    } else {
+      send('list_rooms', { tab: activeTab });
+    }
   }, [send, activeTab]);
 
   // Tab切换时重新加载
@@ -163,10 +186,8 @@ export default function RoomList() {
             <MessageSquare size={48} className="empty-icon" />
             <h3>暂无房间</h3>
             <p>
-              {activeTab === 'created'
-                ? '你还没有创建过房间，点击右上角创建吧！'
-                : activeTab === 'joined'
-                ? '你还没有加入任何房间，去房间大厅看看吧！'
+              {activeTab === 'my'
+                ? '你还没有创建或加入任何房间，去房间大厅看看吧！'
                 : '房间大厅空空如也，快来创建第一个房间吧！'}
             </p>
           </div>

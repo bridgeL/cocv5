@@ -14,17 +14,22 @@ export default function MainLayout({ children }) {
   const { send, onMessage, connectionStatus } = useWebSocket();
   const [userRooms, setUserRooms] = useState([]);
 
-  // 获取用户房间列表
+  // 获取用户房间列表（创建的和加入的）
   useEffect(() => {
     if (connectionStatus === 'connected') {
-      send('list_user_rooms');
+      send('list_rooms', { tab: 'created' });
+      send('list_rooms', { tab: 'joined' });
     }
   }, [connectionStatus, send]);
 
   // 监听房间列表更新
   useEffect(() => {
-    const unsubscribe = onMessage('user_rooms_list', (payload) => {
-      setUserRooms(payload.rooms || []);
+    const unsubscribe = onMessage('rooms_list', (payload) => {
+      setUserRooms(prev => {
+        const existingIds = new Set(prev.map(r => r.id));
+        const newRooms = (payload.rooms || []).filter(r => !existingIds.has(r.id));
+        return [...prev, ...newRooms];
+      });
     });
     return () => unsubscribe();
   }, [onMessage]);

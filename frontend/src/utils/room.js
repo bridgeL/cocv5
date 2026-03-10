@@ -67,15 +67,10 @@ export const ROOM_STATUS = {
  * Tab标签映射
  */
 export const ROOM_TABS = {
-  created: {
-    key: 'created',
-    label: '我创建的',
-    description: '你作为房主创建的房间'
-  },
-  joined: {
-    key: 'joined',
-    label: '我加入的',
-    description: '你作为玩家加入的房间'
+  my: {
+    key: 'my',
+    label: '我的房间',
+    description: '我创建或加入的房间'
   },
   hall: {
     key: 'hall',
