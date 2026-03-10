@@ -82,8 +82,11 @@ class RoomManager:
         if room['status'] != 'active':
             raise ValueError("房间已关闭")
 
-        # 检查密码
-        if room['has_password']:
+        # 检查是否已经在房间中（已加入的用户不需要再次验证密码）
+        is_member = self.room_memory.is_room_member(room_id, user_id)
+
+        # 检查密码（只有未加入房间的用户才需要）
+        if room['has_password'] and not is_member:
             if not password:
                 raise ValueError("需要密码")
             hashed_input = self._hash_password(password)
@@ -99,7 +102,7 @@ class RoomManager:
                     raise ValueError("密码错误")
 
         # 检查是否已经在房间中
-        if self.room_memory.is_room_member(room_id, user_id):
+        if is_member:
             # 已经在房间中，只是更新连接
             if ws_connection:
                 if room_id not in self.active_rooms:

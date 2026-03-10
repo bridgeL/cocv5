@@ -112,6 +112,12 @@ export default function RoomList() {
 
   // 点击房间卡片
   const handleRoomClick = (room) => {
+    // 我的房间：已加入，直接进入（后端会自动识别已加入的用户）
+    if (activeTab === 'my') {
+      navigate(`/rooms/${room.id}`);
+      return;
+    }
+    // 房间大厅：未加入，有密码的需要输入
     if (room.has_password) {
       setSelectedRoom(room);
       setShowJoinModal(true);
