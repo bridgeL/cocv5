@@ -7,10 +7,12 @@ from typing import Any, Optional
 class Memory:
     """内存类，存储对话历史到SQLite数据库"""
 
-    def __init__(self, session_id: str, db_path: str = "memory.db"):
+    def __init__(self, session_id: str, user_id: str | None = None, db_path: str = "memory.db"):
         self.session_id = session_id
+        self.user_id = user_id
         self.db_path = db_path
         self._init_db()
+        self._migrate_db()
 
     def _init_db(self):
         """初始化数据库表"""
@@ -20,6 +22,7 @@ class Memory:
                 CREATE TABLE IF NOT EXISTS memory (
                     id INTEGER PRIMARY KEY AUTOINCREMENT,
                     session_id TEXT NOT NULL,
+                    user_id TEXT,
                     role TEXT NOT NULL,
                     content TEXT NOT NULL,
                     tool_calls TEXT,
@@ -29,6 +32,17 @@ class Memory:
             """
             )
             conn.commit()
+
+    def _migrate_db(self):
+        """数据库迁移：添加 user_id 字段（如果不存在）"""
+        with sqlite3.connect(self.db_path) as conn:
+            # 检查 user_id 字段是否存在
+            cursor = conn.execute("PRAGMA table_info(memory)")
+            columns = [row[1] for row in cursor.fetchall()]
+            if "user_id" not in columns:
+                conn.execute("ALTER TABLE memory ADD COLUMN user_id TEXT")
+                conn.commit()
+                print("[DB] 迁移：添加 user_id 字段")
 
     def _insert_message(
         self,
@@ -46,11 +60,12 @@ class Memory:
         with sqlite3.connect(self.db_path) as conn:
             conn.execute(
                 """
-                INSERT INTO memory (session_id, role, content, tool_calls, tool_call_id, create_time)
-                VALUES (?, ?, ?, ?, ?, ?)
+                INSERT INTO memory (session_id, user_id, role, content, tool_calls, tool_call_id, create_time)
+                VALUES (?, ?, ?, ?, ?, ?, ?)
                 """,
                 (
                     self.session_id,
+                    self.user_id,
                     role,
                     content,
                     tool_calls_json,
@@ -82,14 +97,25 @@ class Memory:
     def get_messages(self) -> list[dict[str, Any]]:
         """获取所有历史消息"""
         with sqlite3.connect(self.db_path) as conn:
-            cursor = conn.execute(
-                """
-                SELECT role, content, tool_calls, tool_call_id FROM memory
-                WHERE session_id = ?
-                ORDER BY id ASC
-                """,
-                (self.session_id,),
-            )
+            # 如果提供了 user_id，优先按 user_id 查询
+            if self.user_id:
+                cursor = conn.execute(
+                    """
+                    SELECT role, content, tool_calls, tool_call_id FROM memory
+                    WHERE user_id = ?
+                    ORDER BY id ASC
+                    """,
+                    (self.user_id,),
+                )
+            else:
+                cursor = conn.execute(
+                    """
+                    SELECT role, content, tool_calls, tool_call_id FROM memory
+                    WHERE session_id = ?
+                    ORDER BY id ASC
+                    """,
+                    (self.session_id,),
+                )
             rows = cursor.fetchall()
 
         messages = []
@@ -103,10 +129,16 @@ class Memory:
         return messages
 
     def clear(self):
-        """清空当前session的历史"""
+        """清空当前session或用户的历史"""
         with sqlite3.connect(self.db_path) as conn:
-            conn.execute(
-                "DELETE FROM memory WHERE session_id = ?",
-                (self.session_id,),
-            )
+            if self.user_id:
+                conn.execute(
+                    "DELETE FROM memory WHERE user_id = ?",
+                    (self.user_id,),
+                )
+            else:
+                conn.execute(
+                    "DELETE FROM memory WHERE session_id = ?",
+                    (self.session_id,),
+                )
             conn.commit()

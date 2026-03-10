@@ -87,25 +87,43 @@ async def websocket_endpoint(websocket: WebSocket):
     - 创建独立的 Memory 和 Agent
     - 处理 ping/pong 心跳
     - 处理 Agent 对话
+    - 支持用户认证（user_id + nickname）
     """
     await websocket.accept()
 
     # 创建连接（自动生成 session_id）
     conn = WebSocketConnection(websocket)
 
-    # 创建资源
-    memory = Memory(session_id=conn.session_id, db_path="memory.db")
-    agent = create_agent(websocket, memory)
+    # 延迟初始化资源（等待用户认证）
+    memory: Memory | None = None
+    agent: Agent | None = None
+
+    def ensure_initialized():
+        """确保资源已初始化（延迟初始化，等待用户认证）"""
+        nonlocal memory, agent
+        if memory is None:
+            # 使用 user_id 创建 Memory（如果已认证）
+            memory = Memory(
+                session_id=conn.session_id,
+                user_id=conn.user_id,
+                db_path="memory.db"
+            )
+            agent = create_agent(websocket, memory)
+            print(f"[✓] 资源初始化完成: session={conn.session_id}, user={conn.user_id}")
 
     # 注册 agent_chat 处理器
     async def handle_agent_chat(data: dict):
+        # 确保资源已初始化
+        ensure_initialized()
+
         user_message = data.get("message", "")
+        user_info = f"{conn.nickname}({conn.user_id})" if conn.user_id else conn.client
         print(
-            f"[🤖] 收到来自 {conn.client} 的Agent提问 (session: {conn.session_id}): {user_message}"
+            f"[🤖] 收到来自 {user_info} 的Agent提问 (session: {conn.session_id}): {user_message}"
         )
         try:
             await agent.chat(user_message)
-            print(f"[✓] Agent 回复完成: {conn.client} (session: {conn.session_id})")
+            print(f"[✓] Agent 回复完成: {user_info} (session: {conn.session_id})")
         except Exception as e:
             error_msg = f"Agent 调用失败: {str(e)}"
             print(f"[!] {error_msg}")

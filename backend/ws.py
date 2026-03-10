@@ -20,6 +20,9 @@ class WebSocketConnection:
         self.client = f"{websocket.client.host}:{websocket.client.port}"
         # 生成唯一的 session_id
         self.session_id = str(uuid.uuid4())[:8]
+        # 用户ID（由客户端提供）
+        self.user_id: str | None = None
+        self.nickname: str | None = None
         # 按消息类型注册处理器 {msg_type: handler}
         self._handlers: dict[str, MessageHandler] = {}
 
@@ -48,7 +51,7 @@ class WebSocketConnection:
         print(f"[+] WebSocket 客户端连接: {self.client}, session_id: {self.session_id}")
 
         try:
-            # 发送 session_id 给客户端
+            # 发送 session_init 给客户端，等待用户认证
             await self.send("session_init", {"session_id": self.session_id})
 
             while True:
@@ -70,6 +73,11 @@ class WebSocketConnection:
                     await self.send("pong", {})
                     continue
 
+                # 内置处理用户认证
+                if msg_type == "user_auth":
+                    await self._handle_user_auth(data)
+                    continue
+
                 # 查找并调用对应类型的处理器
                 handler = self._handlers.get(msg_type)
                 if handler:
@@ -79,6 +87,22 @@ class WebSocketConnection:
                     await self.send("unknown", {"received": data})
 
         except WebSocketDisconnect:
-            print(f"[-] 客户端断开: {self.client} (session: {self.session_id})")
+            print(f"[-] 客户端断开: {self.client} (session: {self.session_id}, user: {self.user_id})")
         except Exception as e:
             print(f"[!] 与 {self.client} 通信时出错: {e}")
+
+    async def _handle_user_auth(self, data: dict):
+        """处理用户认证消息"""
+        self.user_id = data.get("user_id")
+        self.nickname = data.get("nickname", "匿名用户")
+
+        if self.user_id:
+            print(f"[+] 用户认证成功: {self.nickname} ({self.user_id})")
+            await self.send("user_auth_success", {
+                "session_id": self.session_id,
+                "user_id": self.user_id,
+                "nickname": self.nickname
+            })
+        else:
+            print(f"[!] 用户认证失败: 缺少 user_id")
+            await self.send("user_auth_failed", {"error": "缺少 user_id"})
