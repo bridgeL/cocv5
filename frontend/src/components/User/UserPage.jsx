@@ -6,7 +6,7 @@ import './UserPage.css';
 
 /**
  * 用户页组件
- * 显示用户信息，支持修改昵称、退出登录等操作
+ * 显示用户信息，支持修改昵称、注销账号等操作
  */
 export default function UserPage() {
   const navigate = useNavigate();
@@ -50,9 +50,9 @@ export default function UserPage() {
     setNickname(newNickname);
   };
 
-  // 退出登录
+  // 注销账号
   const handleLogout = () => {
-    if (window.confirm('确定要退出登录吗？您的对话历史将保留。')) {
+    if (window.confirm('⚠️ 警告：注销账号将永久丢失此账号及其所有历史记录！\n\n此操作不可恢复，确定要继续吗？')) {
       clearUser();
       navigate('/');
     }
@@ -143,7 +143,7 @@ export default function UserPage() {
         <div className="user-actions">
           <button className="action-button logout" onClick={handleLogout}>
             <LogOut size={18} />
-            <span>退出登录</span>
+            <span>注销账号</span>
           </button>
         </div>
 
