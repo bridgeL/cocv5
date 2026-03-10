@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect, useCallback } from 'react';
+import { useState, useRef, useEffect, useCallback, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { getUser } from '../../../utils/user';
 import { useWebSocket } from '../../../contexts/WebSocketContext';
@@ -13,10 +13,17 @@ export function useRoomChat(roomId) {
   const [members, setMembers] = useState([]);
   const [error, setError] = useState(null);
   const [isJoined, setIsJoined] = useState(false);
+  const [isProcessing, setIsProcessing] = useState(false);
+  const [isReceivingReport, setIsReceivingReport] = useState(false);
 
   // 气泡折叠状态
   const [collapseMode, setCollapseMode] = useState('all-expanded');
   const [collapsedItems, setCollapsedItems] = useState(new Set());
+
+  // 简略模式下是否需要显示占位思考气泡
+  const showPlaceholderThink = useMemo(() => {
+    return isProcessing && !isReceivingReport;
+  }, [isProcessing, isReceivingReport]);
 
   const messagesEndRef = useRef(null);
   const messagesContainerRef = useRef(null);
@@ -60,8 +67,12 @@ export function useRoomChat(roomId) {
       send('load_room_history', { room_id: roomId, limit: 20 });
     }));
 
-    // 监听房间消息
+
+    // 监听用户消息（开始处理）
     unsubscribes.push(onMessage('room_message', (payload) => {
+      if (payload.is_kp) return; // KP消息不在这里处理
+      setIsProcessing(true);
+      setIsReceivingReport(false);
       setMessages(prev => [...prev, {
         type: 'user',
         userId: payload.user_id,
@@ -107,6 +118,7 @@ export function useRoomChat(roomId) {
 
     // 监听KP回答开始
     unsubscribes.push(onMessage('report_start', () => {
+      setIsReceivingReport(true);
       setMessages(prev => [...prev, {
         type: 'report',
         nickname: 'KP',
@@ -129,6 +141,7 @@ export function useRoomChat(roomId) {
 
     // 监听KP回答结束
     unsubscribes.push(onMessage('report_end', () => {
+      setIsReceivingReport(false);
       setMessages(prev => {
         const lastMsg = prev[prev.length - 1];
         if (lastMsg?.type === 'report') {
@@ -136,6 +149,19 @@ export function useRoomChat(roomId) {
         }
         return prev;
       });
+    }));
+
+    // 监听完成
+    unsubscribes.push(onMessage('complete', () => {
+      setIsProcessing(false);
+      setIsReceivingReport(false);
+    }));
+
+    // 监听错误
+    unsubscribes.push(onMessage('error', (payload) => {
+      setIsProcessing(false);
+      setIsReceivingReport(false);
+      setError(payload.error || '未知错误');
     }));
 
     // 监听成员加入
@@ -282,6 +308,7 @@ export function useRoomChat(roomId) {
     error,
     isJoined,
     collapseMode,
+    showPlaceholderThink,
 
     // refs
     messagesEndRef,

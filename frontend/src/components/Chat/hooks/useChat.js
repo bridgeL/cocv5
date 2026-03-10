@@ -7,6 +7,7 @@ export function useChat() {
   const [messages, setMessages] = useState([]);
   const [input, setInput] = useState('');
   const [isProcessing, setIsProcessing] = useState(false);
+  const [isReceivingReport, setIsReceivingReport] = useState(false);
   const [sessionId, setSessionId] = useState(null);
   const [currentToolCall, setCurrentToolCall] = useState(null);
   const [error, setError] = useState(null);
@@ -44,15 +45,10 @@ export function useChat() {
   }, []);
 
   // 简略模式下是否需要显示占位思考气泡
+  // 只要还在处理中，且不在接收报告状态，就显示占位思考气泡
   const showPlaceholderThink = useMemo(() => {
-    if (!isProcessing || messages.length === 0) return false;
-    const lastMsg = messages[messages.length - 1];
-    const hasHiddenProcessing = collapseMode === 'all-collapsed' && messages.some(
-      m => (m.type === 'think' && !m.isComplete && !m.isPlaceholder) ||
-           (m.type === 'tool' && m.status === 'executing')
-    );
-    return lastMsg?.isComplete || hasHiddenProcessing;
-  }, [isProcessing, messages, collapseMode]);
+    return isProcessing && !isReceivingReport;
+  }, [isProcessing, isReceivingReport]);
 
   // 注册WebSocket消息监听
   useEffect(() => {
@@ -100,6 +96,7 @@ export function useChat() {
 
     unsubscribes.push(onMessage('received', () => {
       setIsProcessing(true);
+      setIsReceivingReport(false);
       setMessages(prev => {
         const hasThink = prev.some(m => m.type === 'think' && !m.isComplete);
         const hasExecutingTool = prev.some(m => m.type === 'tool' && m.status === 'executing');
@@ -144,6 +141,7 @@ export function useChat() {
     }));
 
     unsubscribes.push(onMessage('report_start', () => {
+      setIsReceivingReport(true);
       setMessages(prev => {
         const lastMsg = prev[prev.length - 1];
         if (lastMsg?.type === 'think' && lastMsg.isPlaceholder) {
@@ -165,6 +163,7 @@ export function useChat() {
     }));
 
     unsubscribes.push(onMessage('report_end', () => {
+      setIsReceivingReport(false);
       setMessages(prev => {
         const lastMsg = prev[prev.length - 1];
         if (lastMsg?.type === 'report') {
@@ -210,6 +209,7 @@ export function useChat() {
 
     unsubscribes.push(onMessage('complete', () => {
       setIsProcessing(false);
+      setIsReceivingReport(false);
       placeholderThinkRef.current = null;
       setMessages(prev => {
         const lastMsg = prev[prev.length - 1];
@@ -226,6 +226,7 @@ export function useChat() {
 
     unsubscribes.push(onMessage('error', (payload) => {
       setIsProcessing(false);
+      setIsReceivingReport(false);
       placeholderThinkRef.current = null;
       setError(payload.error || '未知错误');
       setCurrentToolCall(null);
