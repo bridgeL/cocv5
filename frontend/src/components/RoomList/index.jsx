@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Users, Plus, Lock, MessageSquare, ChevronLeft } from 'lucide-react';
+import { Users, Plus, Lock, MessageSquare } from 'lucide-react';
 import { getUser } from '../../utils/user';
 import { useWebSocket } from '../../contexts/WebSocketContext';
 import { formatTime, ROOM_TABS } from '../../utils/room';
@@ -97,11 +97,6 @@ export default function RoomList() {
     setSelectedRoom(null);
   };
 
-  // 返回私聊
-  const goToChat = () => {
-    navigate('/chat');
-  };
-
   // 状态指示器
   const getStatusIndicator = () => {
     switch (connectionStatus) {
@@ -119,10 +114,6 @@ export default function RoomList() {
       {/* 头部 */}
       <header className="room-list-header">
         <div className="header-left">
-          <button className="back-btn" onClick={goToChat} title="返回私聊">
-            <ChevronLeft size={20} />
-            <span>私聊</span>
-          </button>
           <h1>房间列表</h1>
           {getStatusIndicator()}
         </div>

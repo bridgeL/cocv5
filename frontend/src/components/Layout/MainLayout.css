@@ -115,6 +115,30 @@
   flex-shrink: 0;
 }
 
+/* 用户房间列表区域 */
+.user-rooms-section {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  max-height: 300px;
+  overflow-y: auto;
+  width: 100%;
+}
+
+.user-rooms-section::-webkit-scrollbar {
+  width: 0;
+}
+
+/* 房间标签特殊样式 */
+.sidebar-tab.room-tab {
+  background: #313338;
+}
+
+.sidebar-tab.room-tab.active {
+  background: #3ba55c;
+}
+
 /* 底部区域 */
 .sidebar-footer {
   margin-top: auto;
