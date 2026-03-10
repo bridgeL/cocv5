@@ -206,6 +206,50 @@ export default function Chat() {
         case 'user_auth_success':
           console.log('[WS] 用户认证成功:', data);
           setIsConnected(true);
+          // 认证成功后加载历史消息
+          if (wsRef.current?.readyState === WebSocket.OPEN) {
+            wsRef.current.send(JSON.stringify({
+              type: 'load_history',
+              limit: 20
+            }));
+            console.log('[WS Send] load_history: { limit: 20 }');
+          }
+          break;
+
+        case 'history_messages':
+          // 结构化历史消息，已切分 think 和 report
+          console.log('[WS] 收到历史消息:', data.messages?.length || 0, '条');
+          if (data.messages && data.messages.length > 0) {
+            const formatted = [];
+            data.messages.forEach(msg => {
+              if (msg.role === 'user') {
+                formatted.push({ type: 'user', content: msg.content, isComplete: true });
+              } else if (msg.role === 'assistant') {
+                // think 部分
+                if (msg.think) {
+                  formatted.push({ type: 'think', content: msg.think, isComplete: true });
+                }
+                // tool_calls
+                if (msg.tool_calls) {
+                  msg.tool_calls.forEach(tc => {
+                    formatted.push({
+                      type: 'tool',
+                      id: tc.id,
+                      name: tc.name,
+                      args: typeof tc.arguments === 'string' ? JSON.parse(tc.arguments) : tc.arguments,
+                      result: tc.result,
+                      status: tc.result ? 'success' : 'executing'
+                    });
+                  });
+                }
+                // report 部分
+                if (msg.report) {
+                  formatted.push({ type: 'report', content: msg.report, isComplete: true });
+                }
+              }
+            });
+            setMessages(formatted);
+          }
           break;
 
         case 'user_auth_failed':

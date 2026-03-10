@@ -142,3 +142,70 @@ class Memory:
                     (self.session_id,),
                 )
             conn.commit()
+
+    def get_recent_rounds(self, limit: int = 20) -> list[dict[str, Any]]:
+        """获取最近 N 轮对话历史
+
+        一轮 = 用户消息 + 后续AI响应（思考+工具+回答）
+        策略：
+        1. 查询最近 N 条用户消息的ID（倒序）
+        2. 取最早的那条作为起始点
+        3. 查询从该点之后的所有消息（正序）
+
+        Args:
+            limit: 轮数限制（默认20）
+
+        Returns:
+            消息列表，包含完整对话历史
+        """
+        if not self.user_id:
+            return []
+
+        with sqlite3.connect(self.db_path) as conn:
+            # 获取最近 N 条用户消息的ID（倒序）
+            cursor = conn.execute(
+                """
+                SELECT id FROM memory
+                WHERE user_id = ? AND role = 'user'
+                ORDER BY id DESC
+                LIMIT ?
+                """,
+                (self.user_id, limit)
+            )
+            user_msg_ids = [row[0] for row in cursor.fetchall()]
+
+            if not user_msg_ids:
+                return []
+
+            # 取最早的那条用户消息的id作为起始点
+            min_id = min(user_msg_ids)
+
+            # 查询从该点之后的所有消息（正序）
+            cursor = conn.execute(
+                """
+                SELECT id, role, content, tool_calls, tool_call_id, create_time
+                FROM memory
+                WHERE user_id = ? AND id >= ?
+                ORDER BY id ASC
+                """,
+                (self.user_id, min_id)
+            )
+            rows = cursor.fetchall()
+
+        # 转换为字典列表
+        messages = []
+        for row in rows:
+            msg: dict[str, Any] = {
+                'id': row[0],
+                'role': row[1],
+                'content': row[2]
+            }
+            if row[3]:  # tool_calls
+                msg["tool_calls"] = json.loads(row[3])
+            if row[4]:  # tool_call_id
+                msg["tool_call_id"] = row[4]
+            if row[5]:  # create_time
+                msg["create_time"] = row[5]
+            messages.append(msg)
+
+        return messages
