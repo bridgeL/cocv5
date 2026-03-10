@@ -4,6 +4,7 @@ import LoginPage from './components/Login/LoginPage'
 import UserPage from './components/User/UserPage'
 import RoomList from './components/RoomList'
 import RoomChat from './components/RoomChat'
+import MainLayout from './components/Layout/MainLayout'
 import { hasUser } from './utils/user'
 import { WebSocketProvider } from './contexts/WebSocketContext'
 import './App.css'
@@ -44,7 +45,9 @@ function App() {
             path="/chat"
             element={
               <RequireAuth>
-                <Chat />
+                <MainLayout>
+                  <Chat />
+                </MainLayout>
               </RequireAuth>
             }
           />
@@ -52,7 +55,9 @@ function App() {
             path="/user"
             element={
               <RequireAuth>
-                <UserPage />
+                <MainLayout>
+                  <UserPage />
+                </MainLayout>
               </RequireAuth>
             }
           />
@@ -60,7 +65,9 @@ function App() {
             path="/rooms"
             element={
               <RequireAuth>
-                <RoomList />
+                <MainLayout>
+                  <RoomList />
+                </MainLayout>
               </RequireAuth>
             }
           />
@@ -68,7 +75,9 @@ function App() {
             path="/rooms/:roomId"
             element={
               <RequireAuth>
-                <RoomChat />
+                <MainLayout>
+                  <RoomChat />
+                </MainLayout>
               </RequireAuth>
             }
           />

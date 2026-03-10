@@ -1,51 +1,23 @@
-/* 用户页样式 - Discord 风格 */
+/* 用户页样式 - 白色背景 */
 
 .user-page {
   min-height: 100vh;
   display: flex;
   align-items: center;
   justify-content: center;
-  background: linear-gradient(135deg, #1a1c2e 0%, #2d2b55 50%, #1a1c2e 100%);
+  background: #f5f5f5;
   padding: 20px;
-  position: relative;
-  overflow: hidden;
-}
-
-/* 背景装饰 */
-.user-page::before {
-  content: '';
-  position: absolute;
-  top: -50%;
-  left: -50%;
-  width: 200%;
-  height: 200%;
-  background:
-    radial-gradient(circle at 20% 80%, rgba(120, 119, 198, 0.15) 0%, transparent 50%),
-    radial-gradient(circle at 80% 20%, rgba(255, 119, 198, 0.1) 0%, transparent 50%),
-    radial-gradient(circle at 40% 40%, rgba(120, 219, 255, 0.08) 0%, transparent 40%);
-  animation: gradientMove 20s ease-in-out infinite;
-  pointer-events: none;
-}
-
-@keyframes gradientMove {
-  0%, 100% { transform: translate(0, 0) rotate(0deg); }
-  33% { transform: translate(2%, 2%) rotate(1deg); }
-  66% { transform: translate(-1%, 1%) rotate(-1deg); }
 }
 
 /* 用户卡片 */
 .user-card {
-  background: rgba(49, 51, 56, 0.95);
-  border-radius: 8px;
+  background: #fff;
+  border-radius: 12px;
   padding: 32px;
   width: 100%;
   max-width: 480px;
-  box-shadow:
-    0 4px 24px rgba(0, 0, 0, 0.3),
-    0 0 0 1px rgba(255, 255, 255, 0.05);
-  position: relative;
-  z-index: 1;
-  animation: cardAppear 0.4s ease-out;
+  box-shadow: 0 2px 12px rgba(0, 0, 0, 0.1);
+  border: 1px solid #e0e0e0;
 }
 
 .user-card.loading {
@@ -55,19 +27,8 @@
   min-height: 300px;
 }
 
-@keyframes cardAppear {
-  from {
-    opacity: 0;
-    transform: translateY(20px) scale(0.98);
-  }
-  to {
-    opacity: 1;
-    transform: translateY(0) scale(1);
-  }
-}
-
 .loading-text {
-  color: #b5bac1;
+  color: #666;
   font-size: 14px;
 }
 
@@ -78,16 +39,16 @@
   justify-content: space-between;
   margin-bottom: 28px;
   padding-bottom: 20px;
-  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+  border-bottom: 1px solid #eee;
 }
 
 .back-button {
   background: transparent;
   border: none;
-  color: #b5bac1;
+  color: #666;
   cursor: pointer;
   padding: 8px;
-  border-radius: 4px;
+  border-radius: 8px;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -95,12 +56,12 @@
 }
 
 .back-button:hover {
-  color: #fff;
-  background: rgba(255, 255, 255, 0.05);
+  color: #333;
+  background: #f0f0f0;
 }
 
 .user-header h1 {
-  color: #f2f3f5;
+  color: #333;
   font-size: 20px;
   font-weight: 600;
   margin: 0;
@@ -116,8 +77,8 @@
   align-items: center;
   gap: 16px;
   padding: 20px;
-  background: rgba(0, 0, 0, 0.2);
-  border-radius: 8px;
+  background: #f8f9fa;
+  border-radius: 12px;
   margin-bottom: 24px;
 }
 
@@ -140,7 +101,7 @@
 }
 
 .user-id {
-  color: #b5bac1;
+  color: #666;
   font-size: 12px;
   font-family: monospace;
   word-break: break-all;
@@ -148,7 +109,7 @@
 }
 
 .user-created {
-  color: #6d6f78;
+  color: #999;
   font-size: 12px;
 }
 
@@ -159,9 +120,9 @@
 
 .section-label {
   display: block;
-  color: #b5bac1;
-  font-size: 11px;
-  font-weight: 700;
+  color: #666;
+  font-size: 12px;
+  font-weight: 600;
   text-transform: uppercase;
   letter-spacing: 0.5px;
   margin-bottom: 8px;
@@ -174,13 +135,13 @@
   justify-content: space-between;
   gap: 12px;
   padding: 12px 14px;
-  background: #1e1f22;
-  border-radius: 4px;
-  border: 1px solid transparent;
+  background: #f8f9fa;
+  border-radius: 8px;
+  border: 1px solid #e0e0e0;
 }
 
 .nickname-text {
-  color: #f2f3f5;
+  color: #333;
   font-size: 16px;
   font-weight: 500;
   flex: 1;
@@ -193,7 +154,7 @@
   font-size: 13px;
   cursor: pointer;
   padding: 6px 12px;
-  border-radius: 4px;
+  border-radius: 6px;
   transition: all 0.2s;
 }
 
@@ -210,26 +171,26 @@
 
 .edit-nickname input {
   flex: 1;
-  background: #1e1f22;
+  background: #fff;
   border: 1px solid #5865f2;
-  border-radius: 4px;
+  border-radius: 8px;
   padding: 10px 14px;
-  color: #f2f3f5;
+  color: #333;
   font-size: 15px;
   outline: none;
   transition: box-shadow 0.2s;
 }
 
 .edit-nickname input:focus {
-  box-shadow: 0 0 0 1px #5865f2;
+  box-shadow: 0 0 0 3px rgba(88, 101, 242, 0.2);
 }
 
 .icon-button {
-  background: #2d2f33;
+  background: #f0f0f0;
   border: none;
-  border-radius: 4px;
+  border-radius: 8px;
   padding: 10px;
-  color: #b5bac1;
+  color: #666;
   cursor: pointer;
   display: flex;
   align-items: center;
@@ -238,14 +199,14 @@
 }
 
 .icon-button:hover {
-  background: #3d3f43;
-  color: #fff;
+  background: #e0e0e0;
+  color: #333;
 }
 
 .save-button {
   background: #5865f2;
   border: none;
-  border-radius: 4px;
+  border-radius: 8px;
   padding: 10px 16px;
   color: #fff;
   font-size: 14px;
@@ -276,7 +237,7 @@
 .user-actions {
   margin-top: 28px;
   padding-top: 24px;
-  border-top: 1px solid rgba(255, 255, 255, 0.06);
+  border-top: 1px solid #eee;
 }
 
 .action-button {
@@ -286,7 +247,7 @@
   justify-content: center;
   gap: 8px;
   padding: 12px 16px;
-  border-radius: 4px;
+  border-radius: 8px;
   font-size: 14px;
   font-weight: 500;
   cursor: pointer;
@@ -309,11 +270,11 @@
   text-align: center;
   margin-top: 24px;
   padding-top: 20px;
-  border-top: 1px solid rgba(255, 255, 255, 0.06);
+  border-top: 1px solid #eee;
 }
 
 .user-footer p {
-  color: #6d6f78;
+  color: #999;
   font-size: 12px;
   margin: 4px 0;
   line-height: 1.5;

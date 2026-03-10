@@ -1,13 +1,10 @@
 import { useState, useRef, useEffect, useCallback } from 'react';
-import { useNavigate } from 'react-router-dom';
-import { User, Users } from 'lucide-react';
 import ToolCall from '../ToolCall';
 import { getUser } from '../../utils/user';
 import { useWebSocket } from '../../contexts/WebSocketContext';
 import './Chat.css';
 
 export default function Chat() {
-  const navigate = useNavigate();
   const { connectionStatus, isAuthenticated, send, onMessage } = useWebSocket();
 
   const [messages, setMessages] = useState([]);
@@ -305,12 +302,6 @@ export default function Chat() {
           </div>
         </div>
         <div className="header-right">
-          <button className="rooms-menu-button" onClick={() => navigate('/rooms')} title="房间列表">
-            <Users size={18} />
-          </button>
-          <button className="user-menu-button" onClick={() => navigate('/user')} title="个人中心">
-            <User size={18} />
-          </button>
           <div className="collapse-toggle">
             <button className={collapseMode === 'all-collapsed' ? 'active' : ''}
               onClick={() => { setCollapseMode('all-collapsed'); setCollapsedItems(new Set()); }}>简略</button>

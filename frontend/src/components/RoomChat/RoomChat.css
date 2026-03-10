@@ -1,11 +1,11 @@
-/* RoomChat 样式 */
+/* RoomChat 样式 - 白色背景 */
 
 .room-chat-page {
   display: flex;
   flex-direction: column;
   height: 100vh;
-  background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
-  color: #e0e0e0;
+  background: #fff;
+  color: #333;
 }
 
 /* 头部 */
@@ -14,8 +14,8 @@
   justify-content: space-between;
   align-items: center;
   padding: 12px 20px;
-  background: rgba(0, 0, 0, 0.3);
-  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+  background: #fff;
+  border-bottom: 1px solid #e0e0e0;
 }
 
 .header-left {
@@ -30,16 +30,16 @@
   justify-content: center;
   width: 36px;
   height: 36px;
-  background: rgba(255, 255, 255, 0.1);
-  border: 1px solid rgba(255, 255, 255, 0.2);
+  background: #f5f5f5;
+  border: 1px solid #e0e0e0;
   border-radius: 8px;
-  color: #e0e0e0;
+  color: #666;
   cursor: pointer;
   transition: all 0.2s;
 }
 
 .back-btn:hover {
-  background: rgba(255, 255, 255, 0.15);
+  background: #eee;
 }
 
 .room-info {
@@ -52,6 +52,7 @@
   font-size: 18px;
   font-weight: 600;
   margin: 0;
+  color: #333;
 }
 
 .status-indicator {
@@ -90,18 +91,18 @@
   align-items: center;
   gap: 6px;
   padding: 6px 12px;
-  background: rgba(255, 255, 255, 0.1);
+  background: #f5f5f5;
   border-radius: 16px;
   font-size: 14px;
-  color: #b0b0b0;
+  color: #666;
 }
 
 /* 错误提示 */
 .error-banner {
   padding: 10px 20px;
-  background: rgba(244, 67, 54, 0.2);
+  background: rgba(244, 67, 54, 0.1);
   border-left: 4px solid #f44336;
-  color: #ff8a80;
+  color: #d32f2f;
   font-size: 14px;
 }
 
@@ -117,6 +118,7 @@
   flex: 1;
   overflow-y: auto;
   padding: 20px;
+  background: #f8f9fa;
 }
 
 .loading-state {
@@ -125,14 +127,14 @@
   align-items: center;
   justify-content: center;
   height: 100%;
-  color: #888;
+  color: #666;
 }
 
 .loading-spinner {
   width: 40px;
   height: 40px;
-  border: 3px solid rgba(255, 255, 255, 0.1);
-  border-top-color: #667eea;
+  border: 3px solid rgba(0, 0, 0, 0.1);
+  border-top-color: #5865f2;
   border-radius: 50%;
   animation: spin 1s linear infinite;
   margin-bottom: 16px;
@@ -147,7 +149,7 @@
   align-items: center;
   justify-content: center;
   height: 100%;
-  color: #666;
+  color: #999;
   font-size: 14px;
 }
 
@@ -172,14 +174,14 @@
 
 .message.user-message {
   align-self: flex-start;
-  background: rgba(255, 255, 255, 0.1);
-  border: 1px solid rgba(255, 255, 255, 0.1);
+  background: #fff;
+  border: 1px solid #e0e0e0;
 }
 
 .message.kp-message {
   align-self: flex-start;
-  background: linear-gradient(135deg, rgba(102, 126, 234, 0.2), rgba(118, 75, 162, 0.2));
-  border: 1px solid rgba(102, 126, 234, 0.3);
+  background: rgba(88, 101, 242, 0.1);
+  border: 1px solid rgba(88, 101, 242, 0.3);
 }
 
 .message-header {
@@ -191,12 +193,12 @@
 }
 
 .message.user-message .nickname {
-  color: #888;
+  color: #666;
   font-weight: 500;
 }
 
 .message.kp-message .nickname {
-  color: #667eea;
+  color: #5865f2;
   font-weight: 600;
   display: flex;
   align-items: center;
@@ -219,7 +221,7 @@
 .message-content {
   font-size: 14px;
   line-height: 1.6;
-  color: #e0e0e0;
+  color: #333;
   white-space: pre-wrap;
   word-break: break-word;
 }
@@ -237,8 +239,8 @@
 /* 成员列表侧边栏 */
 .members-sidebar {
   width: 200px;
-  background: rgba(0, 0, 0, 0.2);
-  border-left: 1px solid rgba(255, 255, 255, 0.1);
+  background: #fff;
+  border-left: 1px solid #e0e0e0;
   padding: 16px;
   overflow-y: auto;
 }
@@ -250,7 +252,7 @@
   font-size: 14px;
   font-weight: 600;
   margin: 0 0 16px;
-  color: #b0b0b0;
+  color: #666;
 }
 
 .members-list {
@@ -271,32 +273,32 @@
 }
 
 .member-item:hover {
-  background: rgba(255, 255, 255, 0.05);
+  background: #f5f5f5;
 }
 
 .member-item.is-me {
-  background: rgba(102, 126, 234, 0.1);
+  background: rgba(88, 101, 242, 0.1);
 }
 
 .member-name {
   display: flex;
   align-items: center;
   gap: 4px;
-  color: #e0e0e0;
+  color: #333;
 }
 
 .member-item.is-owner .member-name {
-  color: #ffc107;
+  color: #f9a825;
 }
 
 .owner-icon {
-  color: #ffc107;
+  color: #f9a825;
 }
 
 .me-badge {
   padding: 2px 6px;
-  background: rgba(102, 126, 234, 0.3);
-  color: #667eea;
+  background: rgba(88, 101, 242, 0.2);
+  color: #5865f2;
   border-radius: 4px;
   font-size: 11px;
 }
@@ -304,8 +306,8 @@
 /* 输入区域 */
 .room-chat-footer {
   padding: 12px 20px;
-  background: rgba(0, 0, 0, 0.3);
-  border-top: 1px solid rgba(255, 255, 255, 0.1);
+  background: #fff;
+  border-top: 1px solid #e0e0e0;
 }
 
 .input-wrapper {
@@ -318,21 +320,22 @@
 .input-wrapper input {
   flex: 1;
   padding: 12px 16px;
-  background: rgba(255, 255, 255, 0.05);
-  border: 1px solid rgba(255, 255, 255, 0.2);
+  background: #f5f5f5;
+  border: 1px solid #e0e0e0;
   border-radius: 24px;
-  color: #e0e0e0;
+  color: #333;
   font-size: 14px;
   outline: none;
   transition: border-color 0.2s;
 }
 
 .input-wrapper input:focus {
-  border-color: #667eea;
+  border-color: #5865f2;
+  background: #fff;
 }
 
 .input-wrapper input::placeholder {
-  color: #666;
+  color: #999;
 }
 
 .input-wrapper input:disabled {
@@ -346,7 +349,7 @@
   justify-content: center;
   width: 44px;
   height: 44px;
-  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  background: #5865f2;
   border: none;
   border-radius: 50%;
   color: white;
@@ -356,7 +359,7 @@
 
 .input-wrapper button:hover:not(:disabled) {
   transform: scale(1.05);
-  box-shadow: 0 4px 12px rgba(102, 126, 234, 0.4);
+  box-shadow: 0 4px 12px rgba(88, 101, 242, 0.3);
 }
 
 .input-wrapper button:disabled {
