@@ -76,5 +76,10 @@ export const ROOM_TABS = {
     key: 'hall',
     label: '房间大厅',
     description: '所有公开的房间'
+  },
+  join: {
+    key: 'join',
+    label: '加入房间',
+    description: '通过房间ID加入房间'
   }
 };

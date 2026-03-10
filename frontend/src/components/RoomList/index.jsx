@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Users, Plus, Lock, MessageSquare } from 'lucide-react';
+import { Users, Plus, Lock, MessageSquare, LogIn } from 'lucide-react';
 import { getUser } from '../../utils/user';
 import { useWebSocket } from '../../contexts/WebSocketContext';
 import { formatTime, ROOM_TABS } from '../../utils/room';
@@ -22,6 +22,10 @@ export default function RoomList() {
   const [showJoinModal, setShowJoinModal] = useState(false);
   const [selectedRoom, setSelectedRoom] = useState(null);
   const [error, setError] = useState('');
+
+  // 加入房间表单状态
+  const [joinRoomId, setJoinRoomId] = useState('');
+  const [joinPassword, setJoinPassword] = useState('');
 
   const user = getUser();
 
@@ -73,6 +77,12 @@ export default function RoomList() {
 
   // 加载房间列表
   const loadRooms = useCallback(() => {
+    // 加入房间标签不需要加载列表
+    if (activeTab === 'join') {
+      setIsLoading(false);
+      setRooms([]);
+      return;
+    }
     setIsLoading(true);
     if (activeTab === 'my') {
       setRooms([]);
@@ -118,6 +128,16 @@ export default function RoomList() {
     });
     setShowJoinModal(false);
     setSelectedRoom(null);
+  };
+
+  // 通过ID加入房间
+  const handleJoinById = (e) => {
+    e.preventDefault();
+    if (!joinRoomId.trim()) return;
+    send('join_room', {
+      room_id: joinRoomId.trim(),
+      password: joinPassword || undefined
+    });
   };
 
   // 状态指示器
@@ -176,7 +196,47 @@ export default function RoomList() {
 
       {/* 房间列表 */}
       <div className="room-list-content">
-        {isLoading ? (
+        {activeTab === 'join' ? (
+          // 加入房间表单
+          <div className="join-room-form-container">
+            <div className="join-room-form">
+              <LogIn size={48} className="join-room-icon" />
+              <h3>加入房间</h3>
+              <p>输入房间ID即可加入房间</p>
+              <form onSubmit={handleJoinById}>
+                <div className="form-group">
+                  <label htmlFor="join-room-id">房间ID</label>
+                  <input
+                    id="join-room-id"
+                    type="text"
+                    value={joinRoomId}
+                    onChange={(e) => setJoinRoomId(e.target.value)}
+                    placeholder="例如: rm_abc123xyz"
+                    disabled={connectionStatus !== 'connected'}
+                  />
+                </div>
+                <div className="form-group">
+                  <label htmlFor="join-room-password">房间密码（可选）</label>
+                  <input
+                    id="join-room-password"
+                    type="password"
+                    value={joinPassword}
+                    onChange={(e) => setJoinPassword(e.target.value)}
+                    placeholder="如果房间有密码请填写"
+                    disabled={connectionStatus !== 'connected'}
+                  />
+                </div>
+                <button
+                  type="submit"
+                  className="btn-primary join-btn"
+                  disabled={!joinRoomId.trim() || connectionStatus !== 'connected'}
+                >
+                  加入房间
+                </button>
+              </form>
+            </div>
+          </div>
+        ) : isLoading ? (
           <div className="loading-state">
             <div className="loading-spinner" />
             <p>加载中...</p>
