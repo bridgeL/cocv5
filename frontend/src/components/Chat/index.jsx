@@ -1,6 +1,7 @@
 import ChatHeader from './ChatHeader';
 import MessageList from './MessageList';
 import ChatInput from './ChatInput';
+import MemberList from './MemberList';
 import { useChat } from './hooks/useChat';
 import './Chat.css';
 
@@ -26,30 +27,36 @@ export default function Chat() {
 
   return (
     <div className="chat-container">
-      <ChatHeader
-        connectionStatus={connectionStatus}
-        sessionId={sessionId}
-        collapseMode={collapseMode}
-        onCollapseModeChange={setCollapseMode}
-      />
+      <div className="chat-main">
+        <div className="chat-area">
+          <ChatHeader
+            connectionStatus={connectionStatus}
+            sessionId={sessionId}
+            collapseMode={collapseMode}
+            onCollapseModeChange={setCollapseMode}
+          />
 
-      <MessageList
-        messages={messages}
-        collapseMode={collapseMode}
-        showPlaceholderThink={showPlaceholderThink}
-        isCollapsed={isCollapsed}
-        onToggleCollapse={toggleItemCollapse}
-        messagesContainerRef={messagesContainerRef}
-        messagesEndRef={messagesEndRef}
-      />
+          <MessageList
+            messages={messages}
+            collapseMode={collapseMode}
+            showPlaceholderThink={showPlaceholderThink}
+            isCollapsed={isCollapsed}
+            onToggleCollapse={toggleItemCollapse}
+            messagesContainerRef={messagesContainerRef}
+            messagesEndRef={messagesEndRef}
+          />
 
-      <ChatInput
-        input={input}
-        onInputChange={setInput}
-        onSend={sendMessage}
-        onKeyPress={handleKeyPress}
-        disabled={connectionStatus !== 'connected'}
-      />
+          <ChatInput
+            input={input}
+            onInputChange={setInput}
+            onSend={sendMessage}
+            onKeyPress={handleKeyPress}
+            disabled={connectionStatus !== 'connected'}
+          />
+        </div>
+
+        <MemberList />
+      </div>
 
       {error && (
         <div
