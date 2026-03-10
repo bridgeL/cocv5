@@ -1,5 +1,6 @@
 import { useState, useRef, useEffect, useCallback } from 'react';
-import ToolCall from './ToolCall';
+import ToolCall from '../ToolCall';
+import { getUser } from '../../utils/user';
 import './Chat.css';
 
 export default function Chat() {
@@ -189,8 +190,27 @@ export default function Chat() {
       switch (data.type) {
         case 'session_init':
           setSessionId(data.session_id);
-          setIsConnected(true);
           setError(null);
+          // 发送用户认证信息
+          const user = getUser();
+          if (user && wsRef.current?.readyState === WebSocket.OPEN) {
+            wsRef.current.send(JSON.stringify({
+              type: 'user_auth',
+              user_id: user.id,
+              nickname: user.nickname
+            }));
+            console.log('[WS Send] user_auth:', { user_id: user.id, nickname: user.nickname });
+          }
+          break;
+
+        case 'user_auth_success':
+          console.log('[WS] 用户认证成功:', data);
+          setIsConnected(true);
+          break;
+
+        case 'user_auth_failed':
+          console.error('[WS] 用户认证失败:', data);
+          setError('用户认证失败: ' + (data.error || '未知错误'));
           break;
 
         case 'received':
