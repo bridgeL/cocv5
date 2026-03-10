@@ -10,7 +10,6 @@ export default function MessageList({
   collapseMode,
   showPlaceholderThink,
   isCollapsed,
-  onToggleCollapse,
   messagesContainerRef,
   messagesEndRef,
   isRoomMode
@@ -36,7 +35,6 @@ export default function MessageList({
               isComplete={msg.isComplete}
               isPlaceholder={msg.isPlaceholder}
               collapsed={isCollapsed(index, 'think')}
-              onToggle={() => onToggleCollapse(index)}
             />
           );
         }
@@ -48,7 +46,6 @@ export default function MessageList({
               content={msg.content}
               isComplete={msg.isComplete}
               collapsed={isCollapsed(index, 'report')}
-              onToggle={() => onToggleCollapse(index)}
             />
           );
         }
@@ -62,7 +59,6 @@ export default function MessageList({
               result={msg.result}
               status={msg.status}
               collapsed={isCollapsed(index, 'tool')}
-              onToggle={() => onToggleCollapse(index)}
             />
           );
         }

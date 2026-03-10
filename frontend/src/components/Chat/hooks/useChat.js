@@ -14,7 +14,6 @@ export function useChat() {
 
   // 气泡折叠状态
   const [collapseMode, setCollapseMode] = useState('all-expanded');
-  const [collapsedItems, setCollapsedItems] = useState(new Set());
 
   const messagesEndRef = useRef(null);
   const messagesContainerRef = useRef(null);
@@ -26,23 +25,8 @@ export function useChat() {
     if (collapseMode === 'all-collapsed') {
       return type !== 'report';
     }
-    if (collapseMode === 'all-expanded') return false;
-    return collapsedItems.has(index);
-  }, [collapseMode, collapsedItems]);
-
-  // 切换单个气泡的折叠状态
-  const toggleItemCollapse = useCallback((index) => {
-    setCollapseMode('custom');
-    setCollapsedItems(prev => {
-      const newSet = new Set(prev);
-      if (newSet.has(index)) {
-        newSet.delete(index);
-      } else {
-        newSet.add(index);
-      }
-      return newSet;
-    });
-  }, []);
+    return false;
+  }, [collapseMode]);
 
   // 简略模式下是否需要显示占位思考气泡
   // 只要还在处理中，且不在接收报告状态，就显示占位思考气泡
@@ -299,9 +283,6 @@ export function useChat() {
   // 设置折叠模式
   const setCollapseModeWithReset = useCallback((mode) => {
     setCollapseMode(mode);
-    if (mode !== 'custom') {
-      setCollapsedItems(new Set());
-    }
   }, []);
 
   // 清除错误
@@ -327,7 +308,6 @@ export function useChat() {
 
     // 方法
     isCollapsed,
-    toggleItemCollapse,
     sendMessage,
     handleKeyPress,
     setCollapseMode: setCollapseModeWithReset,

@@ -29,7 +29,6 @@ export default function Chat() {
     messagesEndRef,
     messagesContainerRef,
     isCollapsed,
-    toggleItemCollapse,
     sendMessage,
     handleKeyPress,
     setCollapseMode,
@@ -53,7 +52,6 @@ export default function Chat() {
             collapseMode={collapseMode}
             showPlaceholderThink={showPlaceholderThink}
             isCollapsed={isCollapsed}
-            onToggleCollapse={toggleItemCollapse}
             messagesContainerRef={messagesContainerRef}
             messagesEndRef={messagesEndRef}
             isRoomMode={!!roomId}

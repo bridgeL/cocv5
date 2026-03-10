@@ -26,12 +26,6 @@ export default function ChatHeader({
               简略
             </button>
             <button
-              className={collapseMode === 'custom' ? 'active' : ''}
-              onClick={() => onCollapseModeChange('custom')}
-            >
-              自定义
-            </button>
-            <button
               className={collapseMode === 'all-expanded' ? 'active' : ''}
               onClick={() => onCollapseModeChange('all-expanded')}
             >
