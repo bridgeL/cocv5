@@ -77,7 +77,7 @@ export default function RoomList() {
     switch (type) {
       case 'session_init':
         // 发送用户认证
-        if (user) {
+        if (user && wsRef.current?.readyState === WebSocket.OPEN) {
           wsRef.current.send(JSON.stringify({
             type: 'user_auth',
             user_id: user.id,

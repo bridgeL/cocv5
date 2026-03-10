@@ -76,7 +76,7 @@ export default function RoomChat() {
 
     switch (type) {
       case 'session_init':
-        if (user) {
+        if (user && wsRef.current?.readyState === WebSocket.OPEN) {
           wsRef.current.send(JSON.stringify({
             type: 'user_auth',
             user_id: user.id,
