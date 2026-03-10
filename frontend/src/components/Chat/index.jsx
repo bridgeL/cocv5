@@ -1,11 +1,19 @@
+import { useParams } from 'react-router-dom';
 import ChatHeader from './ChatHeader';
 import MessageList from './MessageList';
 import ChatInput from './ChatInput';
 import MemberList from './MemberList';
 import { useChat } from './hooks/useChat';
+import { useRoomChat } from './hooks/useRoomChat';
 import './Chat.css';
 
 export default function Chat() {
+  const { roomId } = useParams();
+
+  // 根据是否有 roomId 决定使用哪个 hook
+  const roomChat = roomId ? useRoomChat(roomId) : null;
+  const normalChat = !roomId ? useChat() : null;
+
   const {
     connectionStatus,
     messages,
@@ -13,6 +21,9 @@ export default function Chat() {
     setInput,
     error,
     sessionId,
+    roomInfo,
+    members,
+    isJoined,
     collapseMode,
     showPlaceholderThink,
     messagesEndRef,
@@ -23,7 +34,7 @@ export default function Chat() {
     handleKeyPress,
     setCollapseMode,
     clearError
-  } = useChat();
+  } = roomChat || normalChat || {};
 
   return (
     <div className="chat-container">
@@ -32,6 +43,7 @@ export default function Chat() {
           <ChatHeader
             connectionStatus={connectionStatus}
             sessionId={sessionId}
+            roomName={roomInfo?.name}
             collapseMode={collapseMode}
             onCollapseModeChange={setCollapseMode}
           />
@@ -44,6 +56,7 @@ export default function Chat() {
             onToggleCollapse={toggleItemCollapse}
             messagesContainerRef={messagesContainerRef}
             messagesEndRef={messagesEndRef}
+            isRoomMode={!!roomId}
           />
 
           <ChatInput
@@ -51,11 +64,12 @@ export default function Chat() {
             onInputChange={setInput}
             onSend={sendMessage}
             onKeyPress={handleKeyPress}
-            disabled={connectionStatus !== 'connected'}
+            disabled={connectionStatus !== 'connected' || (roomId && !isJoined)}
+            placeholder={roomId && !isJoined ? "加入房间后才能发言..." : "输入消息..."}
           />
         </div>
 
-        <MemberList />
+        <MemberList members={members} />
       </div>
 
       {error && (

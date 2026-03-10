@@ -12,7 +12,8 @@ export default function MessageList({
   isCollapsed,
   onToggleCollapse,
   messagesContainerRef,
-  messagesEndRef
+  messagesEndRef,
+  isRoomMode
 }) {
   return (
     <div className="messages" ref={messagesContainerRef}>
@@ -24,7 +25,7 @@ export default function MessageList({
         }
 
         if (msg.type === 'user') {
-          return <UserMessage key={index} content={msg.content} />;
+          return <UserMessage key={index} content={msg.content} nickname={msg.nickname} isRoomMode={isRoomMode} />;
         }
 
         if (msg.type === 'think') {

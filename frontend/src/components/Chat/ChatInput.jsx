@@ -5,7 +5,8 @@ export default function ChatInput({
   onInputChange,
   onSend,
   onKeyPress,
-  disabled
+  disabled,
+  placeholder = "输入消息..."
 }) {
   return (
     <div className="input-area">
@@ -15,7 +16,7 @@ export default function ChatInput({
           value={input}
           onChange={(e) => onInputChange(e.target.value)}
           onKeyPress={onKeyPress}
-          placeholder="输入消息..."
+          placeholder={placeholder}
           disabled={disabled}
           autoComplete="off"
         />

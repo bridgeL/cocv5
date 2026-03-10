@@ -138,6 +138,21 @@
   flex-shrink: 0;
 }
 
+.member-badge.me {
+  color: #4caf50;
+  background: rgba(76, 175, 80, 0.1);
+}
+
+.member-badge.owner {
+  color: #ff9800;
+  background: rgba(255, 152, 0, 0.1);
+}
+
+.member-item.owner {
+  background: linear-gradient(135deg, #fff8e1 0%, #fff3e0 100%);
+  border: 1px solid #ffe0b2;
+}
+
 /* 顶部状态栏 */
 .chat-header {
   background: #fff;
