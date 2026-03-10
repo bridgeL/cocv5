@@ -138,13 +138,14 @@
   padding: 20px;
   display: flex;
   flex-direction: column;
-  gap: 16px;
+  gap: 0;
 }
 
 .message {
   display: flex;
   flex-direction: column;
   max-width: 80%;
+  padding: 4px;
 }
 
 .message.user {

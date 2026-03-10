@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect, useCallback } from 'react';
+import { useState, useRef, useEffect, useCallback, useMemo } from 'react';
 import ToolCall from '../ToolCall';
 import { getUser } from '../../utils/user';
 import { useWebSocket } from '../../contexts/WebSocketContext';
@@ -48,6 +48,17 @@ export default function Chat() {
       return newSet;
     });
   }, []);
+
+  // 简略模式下是否需要显示占位思考气泡
+  const showPlaceholderThink = useMemo(() => {
+    if (!isProcessing || messages.length === 0) return false;
+    const lastMsg = messages[messages.length - 1];
+    const hasHiddenProcessing = collapseMode === 'all-collapsed' && messages.some(
+      m => (m.type === 'think' && !m.isComplete && !m.isPlaceholder) ||
+           (m.type === 'tool' && m.status === 'executing')
+    );
+    return lastMsg?.isComplete || hasHiddenProcessing;
+  }, [isProcessing, messages, collapseMode]);
 
   // 注册WebSocket消息监听
   useEffect(() => {
@@ -316,6 +327,12 @@ export default function Chat() {
 
       <div className="messages" ref={messagesContainerRef}>
         {messages.map((msg, index) => {
+          // 简略模式下：不显示思考和工具气泡，保留占位思考气泡
+          if (collapseMode === 'all-collapsed') {
+            if (msg.type === 'think' && !msg.isPlaceholder) return null;
+            if (msg.type === 'tool') return null;
+          }
+
           if (msg.type === 'user') {
             return (
               <div key={index} className="message user">
@@ -359,7 +376,8 @@ export default function Chat() {
           return null;
         })}
 
-        {isProcessing && messages.length > 0 && messages[messages.length - 1]?.isComplete && (
+        {/* 简略模式下，检查是否有正在进行的思考或工具调用被隐藏，需要显示占位提示 */}
+        {showPlaceholderThink && (
           <div className="message think placeholder">
             <div className="message-header"><span className="tool-call-thinking">思考中...</span></div>
           </div>
