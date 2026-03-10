@@ -91,6 +91,26 @@
   box-shadow: 0 1px 2px rgba(0,0,0,0.1);
 }
 
+/* 用户菜单按钮 */
+.user-menu-button {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  border: none;
+  background: #f0f0f0;
+  border-radius: 6px;
+  color: #666;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.user-menu-button:hover {
+  background: #5865f2;
+  color: white;
+}
+
 /* 消息区域 */
 .messages {
   flex: 1;

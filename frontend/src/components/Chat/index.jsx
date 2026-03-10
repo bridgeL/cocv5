@@ -1,9 +1,12 @@
 import { useState, useRef, useEffect, useCallback } from 'react';
+import { useNavigate } from 'react-router-dom';
+import { User } from 'lucide-react';
 import ToolCall from '../ToolCall';
 import { getUser } from '../../utils/user';
 import './Chat.css';
 
 export default function Chat() {
+  const navigate = useNavigate();
   const [messages, setMessages] = useState([]);
   const [input, setInput] = useState('');
   const [isConnected, setIsConnected] = useState(false);
@@ -499,6 +502,14 @@ export default function Chat() {
           </div>
         </div>
         <div className="header-right">
+          {/* 用户入口 */}
+          <button
+            className="user-menu-button"
+            onClick={() => navigate('/user')}
+            title="个人中心"
+          >
+            <User size={18} />
+          </button>
           {/* 气泡折叠开关 */}
           <div className="collapse-toggle" title="折叠/展开气泡">
             <button

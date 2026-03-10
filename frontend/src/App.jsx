@@ -1,6 +1,7 @@
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom'
 import Chat from './components/Chat'
 import LoginPage from './components/Login/LoginPage'
+import UserPage from './components/User/UserPage'
 import { hasUser } from './utils/user'
 import './App.css'
 
@@ -40,6 +41,14 @@ function App() {
             element={
               <RequireAuth>
                 <Chat />
+              </RequireAuth>
+            }
+          />
+          <Route
+            path="/user"
+            element={
+              <RequireAuth>
+                <UserPage />
               </RequireAuth>
             }
           />
