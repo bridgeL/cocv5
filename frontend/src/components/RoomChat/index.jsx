@@ -315,9 +315,17 @@ export default function RoomChat() {
         <aside className="members-sidebar">
           <h3>
             <Users size={16} />
-            成员 ({members.length})
+            成员 ({members.length + 1})
           </h3>
           <ul className="members-list">
+            {/* KP 固定显示 */}
+            <li className="member-item is-kp">
+              <span className="member-name">
+                <Crown size={12} className="kp-icon" />
+                KP
+              </span>
+              <span className="kp-badge">AI</span>
+            </li>
             {members.map((member) => (
               <li
                 key={member.user_id}

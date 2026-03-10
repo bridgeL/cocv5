@@ -68,6 +68,8 @@ export function WebSocketProvider({ children }) {
     };
 
     ws.onmessage = (event) => {
+      // 检查是否仍是当前 WebSocket 实例（避免 StrictMode 旧实例干扰）
+      if (wsRef.current !== ws) return;
       try {
         const data = JSON.parse(event.data);
         console.log('[WebSocket] 收到:', data.type, data);
