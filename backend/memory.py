@@ -50,6 +50,12 @@ class Memory:
                 conn.commit()
                 print("[DB] 迁移：添加 room_id 字段")
 
+            # 检查 think 字段是否存在
+            if "think" not in columns:
+                conn.execute("ALTER TABLE memory ADD COLUMN think TEXT")
+                conn.commit()
+                print("[DB] 迁移：添加 think 字段")
+
             # 创建 rooms 表
             conn.execute(
                 """
@@ -88,6 +94,7 @@ class Memory:
         content: str,
         tool_calls: Optional[list[dict]] = None,
         tool_call_id: Optional[str] = None,
+        think: Optional[str] = None,
     ):
         """插入消息到数据库，实时保存"""
         create_time = int(datetime.now().timestamp() * 1000)
@@ -98,8 +105,8 @@ class Memory:
         with sqlite3.connect(self.db_path) as conn:
             conn.execute(
                 """
-                INSERT INTO memory (session_id, user_id, role, content, tool_calls, tool_call_id, create_time)
-                VALUES (?, ?, ?, ?, ?, ?, ?)
+                INSERT INTO memory (session_id, user_id, role, content, tool_calls, tool_call_id, create_time, think)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?)
                 """,
                 (
                     self.session_id,
@@ -109,6 +116,7 @@ class Memory:
                     tool_calls_json,
                     tool_call_id,
                     create_time,
+                    think,
                 ),
             )
             conn.commit()
@@ -118,10 +126,10 @@ class Memory:
         self._insert_message(role="user", content=content)
 
     def add_assistant_message(
-        self, content: str, tool_calls: Optional[list[dict]] = None
+        self, content: str, tool_calls: Optional[list[dict]] = None, think: Optional[str] = None
     ):
         """添加助手消息"""
-        self._insert_message(role="assistant", content=content, tool_calls=tool_calls)
+        self._insert_message(role="assistant", content=content, tool_calls=tool_calls, think=think)
 
     def add_tool_result(self, tool_call_id: str, content: str | dict):
         """添加工具执行结果，支持str或dict类型"""
@@ -461,7 +469,8 @@ class RoomMemory:
             return cursor.fetchone() is not None
 
     def add_room_message(self, room_id: str, user_id: str | None, role: str, content: str,
-                         tool_calls: list[dict] | None = None, tool_call_id: str | None = None):
+                         tool_calls: list[dict] | None = None, tool_call_id: str | None = None,
+                         think: str | None = None):
         """添加房间消息"""
         create_time = str(int(datetime.now().timestamp() * 1000))
         tool_calls_json = json.dumps(tool_calls, ensure_ascii=False) if tool_calls else None
@@ -469,10 +478,10 @@ class RoomMemory:
         with self._get_connection() as conn:
             conn.execute(
                 """
-                INSERT INTO memory (session_id, user_id, room_id, role, content, tool_calls, tool_call_id, create_time)
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+                INSERT INTO memory (session_id, user_id, room_id, role, content, tool_calls, tool_call_id, create_time, think)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
                 """,
-                ('', user_id, room_id, role, content, tool_calls_json, tool_call_id, create_time)
+                ('', user_id, room_id, role, content, tool_calls_json, tool_call_id, create_time, think)
             )
             conn.commit()
 
@@ -499,7 +508,7 @@ class RoomMemory:
             # 查询从该点之后的所有消息
             cursor = conn.execute(
                 """
-                SELECT id, user_id, role, content, tool_calls, tool_call_id, create_time
+                SELECT id, user_id, role, content, tool_calls, tool_call_id, create_time, think
                 FROM memory
                 WHERE room_id = ? AND id >= ?
                 ORDER BY id ASC
@@ -522,6 +531,8 @@ class RoomMemory:
                 msg["tool_call_id"] = row[5]
             if row[6]:  # create_time
                 msg["create_time"] = row[6]
+            if row[7]:  # think
+                msg["think"] = row[7]
             messages.append(msg)
 
         return messages

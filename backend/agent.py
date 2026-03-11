@@ -34,6 +34,8 @@ class StreamBuffer:
         self.send_callback = send_callback
         self.state = StreamState.NORMAL
         self.content_buffer = ""  # 当前状态的内容缓冲区
+        self.think_content = ""  # 收集的完整思考内容
+        self.report_content = ""  # 收集的完整回复内容
 
     async def _send_event(self, msg_type: str, content: str = ""):
         """发送事件"""
@@ -79,10 +81,12 @@ class StreamBuffer:
 
         if self.state == StreamState.IN_THINK:
             await self._send_event("think_chunk", self.content_buffer)
+            self.think_content += self.content_buffer
         else:
             # 其他情况都转为 report 状态发送
             await self._ensure_report_state()
             await self._send_event("report_chunk", self.content_buffer)
+            self.report_content += self.content_buffer
         self.content_buffer = ""
 
     def _find_earliest_tag(self) -> tuple[str, int] | None:
@@ -316,8 +320,9 @@ class Agent:
             if not tool_calls:
                 # 没有工具调用，将助手响应加入内存并结束
                 self.memory.add_assistant_message(
-                    content=full_response,
+                    content=stream_buffer.report_content or full_response,
                     tool_calls=None,
+                    think=stream_buffer.think_content or None,
                 )
                 break
 
@@ -337,8 +342,9 @@ class Agent:
 
             # 将助手消息（含工具调用）加入内存
             self.memory.add_assistant_message(
-                content=full_response,
+                content=stream_buffer.report_content or full_response,
                 tool_calls=tool_calls,
+                think=stream_buffer.think_content or None,
             )
 
             # 执行工具并添加结果到内存（并行执行）
