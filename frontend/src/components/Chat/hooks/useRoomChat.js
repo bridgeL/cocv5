@@ -27,6 +27,12 @@ export function useRoomChat(roomId) {
   const messagesEndRef = useRef(null);
   const messagesContainerRef = useRef(null);
   const isAtBottomRef = useRef(true);
+  const membersRef = useRef(members);
+
+  // 同步 members 到 ref
+  useEffect(() => {
+    membersRef.current = members;
+  }, [members]);
 
   const user = getUser();
 
@@ -170,7 +176,7 @@ export function useRoomChat(roomId) {
         const formatted = payload.messages.map(msg => ({
           type: msg.role === 'assistant' ? (msg.think ? 'think' : 'report') : 'user',
           userId: msg.user_id,
-          nickname: msg.role === 'assistant' ? 'KP' : (members.find(m => m.user_id === msg.user_id)?.nickname || msg.nickname || '未知'),
+          nickname: msg.role === 'assistant' ? 'KP' : (membersRef.current.find(m => m.user_id === msg.user_id)?.nickname || msg.nickname || '未知'),
           content: msg.content,
           isKP: msg.role === 'assistant',
           isComplete: true
@@ -194,7 +200,7 @@ export function useRoomChat(roomId) {
     }));
 
     return () => unsubscribes.forEach(u => u());
-  }, [onMessage, roomId, user?.id, members, navigate, send]);
+  }, [onMessage, roomId, user?.id, navigate, send]);
 
   // 连接成功后加入房间
   useEffect(() => {

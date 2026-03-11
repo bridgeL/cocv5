@@ -204,11 +204,11 @@ class Memory:
             cursor = conn.execute(
                 """
                 SELECT id FROM memory
-                WHERE user_id = ? AND role = 'user'
+                WHERE user_id = ? AND session_id = ? AND role = 'user'
                 ORDER BY id DESC
                 LIMIT ?
                 """,
-                (self.user_id, limit)
+                (self.user_id, self.session_id, limit)
             )
             user_msg_ids = [row[0] for row in cursor.fetchall()]
 
@@ -223,10 +223,10 @@ class Memory:
                 """
                 SELECT id, role, content, tool_calls, tool_call_id, create_time
                 FROM memory
-                WHERE user_id = ? AND id >= ?
+                WHERE user_id = ? AND session_id = ? AND id >= ?
                 ORDER BY id ASC
                 """,
-                (self.user_id, min_id)
+                (self.user_id, self.session_id, min_id)
             )
             rows = cursor.fetchall()
 
