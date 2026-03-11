@@ -235,6 +235,20 @@ async def websocket_endpoint(websocket: WebSocket):
                 ws_connection=conn
             )
 
+            # 检查房间是否已有KP Agent，如果没有则创建
+            if not room_agent_manager.get_agent(room_id):
+                async def broadcast_to_room(msg_type: str, msg_data: dict):
+                    await room_manager.broadcast_to_room(room_id, msg_type, msg_data)
+
+                agent = await room_agent_manager.create_agent(
+                    room_id=room_id,
+                    broadcast_callback=broadcast_to_room
+                )
+                from memory import RoomMemory
+                room_memory = RoomMemory()
+                room_memory.set_kp_session(room_id, agent.get_session_id())
+                print(f"[✓] 为房间 {room_id} 创建KP Agent")
+
             await conn.send("room_joined", result)
             print(f"[✓] 加入房间成功: {conn.nickname} -> {room_id}")
         except ValueError as e:
