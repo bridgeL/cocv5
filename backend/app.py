@@ -223,7 +223,7 @@ async def websocket_endpoint(websocket: WebSocket):
         password = data.get("password")
 
         if not room_id:
-            await conn.send("room_error", {"error": "房间ID不能为空"})
+            await conn.send("room_error", {"error": "房间ID不能为空", "room_id": room_id})
             return
 
         try:
@@ -252,9 +252,9 @@ async def websocket_endpoint(websocket: WebSocket):
             await conn.send("room_joined", result)
             print(f"[✓] 加入房间成功: {conn.nickname} -> {room_id}")
         except ValueError as e:
-            await conn.send("room_error", {"error": str(e)})
+            await conn.send("room_error", {"error": str(e), "room_id": room_id})
         except Exception as e:
-            await conn.send("room_error", {"error": f"加入房间失败: {str(e)}"})
+            await conn.send("room_error", {"error": f"加入房间失败: {str(e)}", "room_id": room_id})
 
     async def handle_leave_room(data: dict):
         """离开房间"""
@@ -264,7 +264,7 @@ async def websocket_endpoint(websocket: WebSocket):
 
         room_id = data.get("room_id")
         if not room_id:
-            await conn.send("room_error", {"error": "房间ID不能为空"})
+            await conn.send("room_error", {"error": "房间ID不能为空", "room_id": room_id})
             return
 
         success = await room_manager.leave_room(room_id, conn.user_id)
@@ -272,7 +272,7 @@ async def websocket_endpoint(websocket: WebSocket):
             await conn.send("room_left", {"room_id": room_id})
             print(f"[✓] 离开房间成功: {conn.nickname} -> {room_id}")
         else:
-            await conn.send("room_error", {"error": "离开房间失败"})
+            await conn.send("room_error", {"error": "离开房间失败", "room_id": room_id})
 
     async def handle_close_room(data: dict):
         """关闭房间（仅房主）"""
@@ -282,7 +282,7 @@ async def websocket_endpoint(websocket: WebSocket):
 
         room_id = data.get("room_id")
         if not room_id:
-            await conn.send("room_error", {"error": "房间ID不能为空"})
+            await conn.send("room_error", {"error": "房间ID不能为空", "room_id": room_id})
             return
 
         success = await room_manager.close_room(room_id, conn.user_id)
@@ -292,7 +292,7 @@ async def websocket_endpoint(websocket: WebSocket):
             await conn.send("room_closed", {"room_id": room_id})
             print(f"[✓] 关闭房间成功: {room_id} by {conn.nickname}")
         else:
-            await conn.send("room_error", {"error": "关闭房间失败，可能不是房主"})
+            await conn.send("room_error", {"error": "关闭房间失败，可能不是房主", "room_id": room_id})
 
     async def handle_room_chat(data: dict):
         """房间内发言"""
@@ -304,16 +304,16 @@ async def websocket_endpoint(websocket: WebSocket):
         content = data.get("content", "").strip()
 
         if not room_id:
-            await conn.send("room_error", {"error": "房间ID不能为空"})
+            await conn.send("room_error", {"error": "房间ID不能为空", "room_id": room_id})
             return
 
         if not content:
-            await conn.send("room_error", {"error": "消息内容不能为空"})
+            await conn.send("room_error", {"error": "消息内容不能为空", "room_id": room_id})
             return
 
         # 检查用户是否在房间中
         if not room_manager.is_user_in_room(conn.user_id, room_id):
-            await conn.send("room_error", {"error": "您不在该房间中"})
+            await conn.send("room_error", {"error": "您不在该房间中", "room_id": room_id})
             return
 
         # 保存消息到数据库
@@ -347,12 +347,12 @@ async def websocket_endpoint(websocket: WebSocket):
 
         room_id = data.get("room_id")
         if not room_id:
-            await conn.send("room_error", {"error": "房间ID不能为空"})
+            await conn.send("room_error", {"error": "房间ID不能为空", "room_id": room_id})
             return
 
         # 检查用户是否在房间中
         if not room_manager.is_user_in_room(conn.user_id, room_id):
-            await conn.send("room_error", {"error": "您不在该房间中"})
+            await conn.send("room_error", {"error": "您不在该房间中", "room_id": room_id})
             return
 
         limit = data.get("limit", 20)

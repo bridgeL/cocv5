@@ -170,6 +170,7 @@ export function useRoomChat(roomId) {
 
     // 监听成员加入
     unsubscribes.push(onMessage('member_joined', (payload) => {
+      if (!isCurrentRoom(payload)) return;
       if (payload.user_id !== user?.id) {
         setMembers(prev => [...prev, {
           user_id: payload.user_id,
@@ -181,11 +182,13 @@ export function useRoomChat(roomId) {
 
     // 监听成员离开
     unsubscribes.push(onMessage('member_left', (payload) => {
+      if (!isCurrentRoom(payload)) return;
       setMembers(prev => prev.filter(m => m.user_id !== payload.user_id));
     }));
 
     // 监听历史消息
     unsubscribes.push(onMessage('room_history', (payload) => {
+      if (!isCurrentRoom(payload)) return; // 不是当前房间的历史消息
       if (payload.messages) {
         const formatted = payload.messages.map(msg => ({
           type: msg.role === 'assistant' ? (msg.think ? 'think' : 'report') : 'user',
@@ -200,13 +203,15 @@ export function useRoomChat(roomId) {
     }));
 
     // 监听房间关闭
-    unsubscribes.push(onMessage('room_closed', () => {
+    unsubscribes.push(onMessage('room_closed', (payload) => {
+      if (!isCurrentRoom(payload)) return;
       setError('房间已关闭');
       setTimeout(() => navigate('/rooms'), 2000);
     }));
 
-    // 监听错误
+    // 监听错误（如果有room_id则过滤，没有则显示）
     unsubscribes.push(onMessage('room_error', (payload) => {
+      if (payload.room_id && payload.room_id !== roomId) return;
       setError(payload.error);
       if (payload.error?.includes('不在该房间')) {
         setTimeout(() => navigate('/rooms'), 2000);
