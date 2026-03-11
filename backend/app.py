@@ -303,7 +303,7 @@ async def websocket_endpoint(websocket: WebSocket):
             return
 
         # 保存消息到数据库
-        room_manager.add_room_message(
+        room_manager.add_message(
             room_id=room_id,
             user_id=conn.user_id,
             role="user",
