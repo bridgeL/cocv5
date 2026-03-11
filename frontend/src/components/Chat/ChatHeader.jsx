@@ -17,22 +17,20 @@ export default function ChatHeader({
         </div>
       </div>
       <div className="header-right">
-        {!roomName && (
-          <div className="collapse-toggle">
-            <button
-              className={collapseMode === 'all-collapsed' ? 'active' : ''}
-              onClick={() => onCollapseModeChange('all-collapsed')}
-            >
-              简略
-            </button>
-            <button
-              className={collapseMode === 'all-expanded' ? 'active' : ''}
-              onClick={() => onCollapseModeChange('all-expanded')}
-            >
-              详细
-            </button>
-          </div>
-        )}
+        <div className="collapse-toggle">
+          <button
+            className={collapseMode === 'all-collapsed' ? 'active' : ''}
+            onClick={() => onCollapseModeChange('all-collapsed')}
+          >
+            简略
+          </button>
+          <button
+            className={collapseMode === 'all-expanded' ? 'active' : ''}
+            onClick={() => onCollapseModeChange('all-expanded')}
+          >
+            详细
+          </button>
+        </div>
         {sessionId && <div className="session-id">Session: {sessionId}</div>}
       </div>
     </header>
