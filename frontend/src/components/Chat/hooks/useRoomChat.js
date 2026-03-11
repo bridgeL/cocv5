@@ -58,8 +58,14 @@ export function useRoomChat(roomId) {
     }));
 
 
+    // 辅助函数：检查消息是否属于当前房间
+    const isCurrentRoom = (payload) => {
+      return !payload.room_id || payload.room_id === roomId;
+    };
+
     // 监听用户消息（开始处理）
     unsubscribes.push(onMessage('room_message', (payload) => {
+      if (!isCurrentRoom(payload)) return; // 不是当前房间的消息
       if (payload.is_kp) return; // KP消息不在这里处理
       setIsProcessing(true);
       setIsReceivingReport(false);
@@ -74,7 +80,8 @@ export function useRoomChat(roomId) {
     }));
 
     // 监听KP思考开始
-    unsubscribes.push(onMessage('think_start', () => {
+    unsubscribes.push(onMessage('think_start', (payload) => {
+      if (!isCurrentRoom(payload)) return;
       setMessages(prev => [...prev, {
         type: 'think',
         nickname: 'KP',
@@ -86,6 +93,7 @@ export function useRoomChat(roomId) {
 
     // 监听KP流式输出
     unsubscribes.push(onMessage('think_chunk', (payload) => {
+      if (!isCurrentRoom(payload)) return;
       setMessages(prev => {
         const lastMsg = prev[prev.length - 1];
         if (lastMsg?.type === 'think' && !lastMsg.isComplete) {
@@ -96,7 +104,8 @@ export function useRoomChat(roomId) {
     }));
 
     // 监听KP思考结束
-    unsubscribes.push(onMessage('think_end', () => {
+    unsubscribes.push(onMessage('think_end', (payload) => {
+      if (!isCurrentRoom(payload)) return;
       setMessages(prev => {
         const lastMsg = prev[prev.length - 1];
         if (lastMsg?.type === 'think') {
@@ -107,7 +116,8 @@ export function useRoomChat(roomId) {
     }));
 
     // 监听KP回答开始
-    unsubscribes.push(onMessage('report_start', () => {
+    unsubscribes.push(onMessage('report_start', (payload) => {
+      if (!isCurrentRoom(payload)) return;
       setIsReceivingReport(true);
       setMessages(prev => [...prev, {
         type: 'report',
@@ -120,6 +130,7 @@ export function useRoomChat(roomId) {
 
     // 监听KP回答流式输出
     unsubscribes.push(onMessage('report_chunk', (payload) => {
+      if (!isCurrentRoom(payload)) return;
       setMessages(prev => {
         const lastMsg = prev[prev.length - 1];
         if (lastMsg?.type === 'report' && !lastMsg.isComplete) {
@@ -130,7 +141,8 @@ export function useRoomChat(roomId) {
     }));
 
     // 监听KP回答结束
-    unsubscribes.push(onMessage('report_end', () => {
+    unsubscribes.push(onMessage('report_end', (payload) => {
+      if (!isCurrentRoom(payload)) return;
       setIsReceivingReport(false);
       setMessages(prev => {
         const lastMsg = prev[prev.length - 1];
@@ -142,13 +154,15 @@ export function useRoomChat(roomId) {
     }));
 
     // 监听完成
-    unsubscribes.push(onMessage('complete', () => {
+    unsubscribes.push(onMessage('complete', (payload) => {
+      if (!isCurrentRoom(payload)) return;
       setIsProcessing(false);
       setIsReceivingReport(false);
     }));
 
     // 监听错误
     unsubscribes.push(onMessage('error', (payload) => {
+      if (!isCurrentRoom(payload)) return;
       setIsProcessing(false);
       setIsReceivingReport(false);
       setError(payload.error || '未知错误');

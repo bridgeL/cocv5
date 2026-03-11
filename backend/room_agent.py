@@ -72,9 +72,13 @@ class RoomAgent:
         发送消息给房间内所有成员
         包装消息，标记为来自KP
         """
-        # 添加KP标识
-        if msg_type in ["think_chunk", "report_chunk", "tool_before", "tool_after", "complete"]:
-            # 这些消息类型需要广播给房间
+        # 所有聊天相关消息都添加KP标识和room_id
+        chat_message_types = [
+            "think_start", "think_chunk", "think_end",
+            "report_start", "report_chunk", "report_end",
+            "tool_before", "tool_after", "complete", "error"
+        ]
+        if msg_type in chat_message_types:
             await self.broadcast_callback(msg_type, {
                 **data,
                 "is_kp": True,
